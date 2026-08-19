@@ -1,180 +1,570 @@
 <!doctype html>
 <html lang="de">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Digilex Quiz</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Digilex: Das Epos der VD</title>
+<!--
+  Digilex: Das Epos der VD, bist du unser:e Projektheld:in
+  Single-file Echtzeit-Multiplayer-Quiz. Host auf dem Beamer, Teilnehmende per QR.
+  Architektur portiert aus The Positive RailWay (host-autoritativ, kein Client-Scoring).
+  Design: Kanton Zuerich Corporate Identity (Dunkelblau, Weiss, Darkmode-Hellblau, ein Goldakzent).
+  ================= SETUP =================
+  1) FIREBASE: der Block FIREBASE-KONFIGURATION unten nutzt das Projekt digilex-quiz
+     (europe-west1). databaseURL muss vorhanden sein und zur Region passen.
+  2) DATENBANK-REGELN: nicht auf Testmodus verlassen (laeuft nach ca. 30 Tagen ab).
+     Build, Realtime Database, Regeln, folgendes veroeffentlichen:
+     { "rules": { "sessions": { "$code": { ".read": true, ".write": true } } } }
+  3) DEPLOY: GitHub, diese index.html hochladen bzw. ueberschreiben, committen.
+     Settings, Pages, Deploy from branch, main, root. Fertig.
+  ================= TESTPROTOKOLL =================
+  Deployte Seite oeffnen, Host starten, Admin-Code, Rundenlaenge waehlen, in der Lobby
+  Taste B (5 Bots), X (10), Q (15), T (20). Eine volle Runde spielen und Leaderboard,
+  Podium und Finale bei voller Klassengroesse pruefen.
+  ================= BUG HUNTING =================
+  Version-Tag unten rechts antippen: Debug-Panel mit Live-State und Fehlerlog.
+  Jeder Firebase-Aufruf hat 9 Sekunden Timeout und meldet Fehler sichtbar als Toast.
+-->
 <style>
-:root {
-  --bg: #0d1b2a;
-  --panel: rgba(255,255,255,0.09);
-  --panel2: rgba(255,255,255,0.14);
-  --text: #f5f7fb;
-  --muted: #c5cfdd;
-  --gold: #e7bc61;
-  --blue: #61dafb;
-  --green: #58d68d;
-  --red: #ff7b7b;
-  --border: rgba(255,255,255,0.18);
-}
-* { box-sizing: border-box; }
-body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); min-height: 100vh; background: radial-gradient(circle at top left, #253b57, #0d1b2a 48%, #07111d); }
-button, input { font: inherit; }
-button { border: 0; border-radius: 14px; padding: 12px 16px; color: #092135; background: var(--gold); font-weight: 750; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
-button.secondary { background: rgba(255,255,255,.12); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
-button.danger { background: #ff9c9c; }
-button:disabled { opacity: .45; cursor: not-allowed; }
-input { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.08); color: var(--text); outline: none; }
-.app { max-width: 1180px; margin: 0 auto; padding: 24px; }
-.hero { padding: 34px; border-radius: 28px; border: 1px solid var(--border); background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.06)); box-shadow: 0 24px 80px rgba(0,0,0,.23); overflow: hidden; position: relative; }
-.hero::after { content: ''; position: absolute; inset: -80px -120px auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, rgba(231,188,97,.28), transparent 62%); }
-h1 { margin: 0 0 10px; font-size: clamp(32px, 5vw, 62px); line-height: 1.02; letter-spacing: -1.6px; }
-h2 { margin: 0 0 12px; font-size: clamp(24px, 3vw, 38px); }
-h3 { margin: 0 0 10px; }
-p { color: var(--muted); line-height: 1.55; }
-.grid { display: grid; gap: 18px; }
-.grid.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.grid.three { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-.card { padding: 22px; border-radius: 22px; border: 1px solid var(--border); background: var(--panel); backdrop-filter: blur(8px); }
-.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
-.badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 10px; background: rgba(231,188,97,.14); color: #ffe0a0; border: 1px solid rgba(231,188,97,.25); font-weight: 650; font-size: 13px; }
-.small { font-size: 13px; color: var(--muted); }
-.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px; }
-.avatar { min-height: 72px; border-radius: 18px; border: 1px solid var(--border); background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.05)); display: grid; place-items: center; cursor: pointer; position: relative; }
-.avatar.selected { outline: 3px solid var(--gold); }
-.avatar.taken { opacity: .35; pointer-events: none; }
-.avatar svg { width: 52px; height: 52px; }
-.icon-medal { width: 76px; height: 76px; margin-bottom: 10px; }
-.session-code { font-size: 44px; letter-spacing: 7px; color: var(--gold); font-weight: 900; }
-.question { display: grid; gap: 16px; }
-.options { display: grid; gap: 12px; }
-.option { text-align: left; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,.09); }
-.option.selected { border-color: var(--gold); background: rgba(231,188,97,.20); }
-.option.correct { border-color: var(--green); background: rgba(88,214,141,.17); }
-.option.wrong { border-color: var(--red); background: rgba(255,123,123,.14); }
-.lobby-avatar { width: 130px; height: 130px; border-radius: 50%; border: 1px solid rgba(231,188,97,.35); display: grid; place-items: center; background: radial-gradient(circle, rgba(231,188,97,.20), rgba(255,255,255,.06)); animation: floaty 3s ease-in-out infinite; }
-@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-.pathline { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--gold), var(--blue)); opacity: .9; }
-.notice { border-left: 4px solid var(--gold); padding: 12px 14px; background: rgba(231,188,97,.10); border-radius: 12px; color: #ffe0a0; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
-.finalTop { background: linear-gradient(145deg, rgba(231,188,97,.22), rgba(255,255,255,.07)); }
-.footer { margin-top: 30px; color: var(--muted); font-size: 12px; }
-@media (max-width: 640px) { .app { padding: 14px; } .hero { padding: 22px; } .session-code { font-size: 34px; } }
-
-
-/* Ergänzungen für die Single-File-Version */
-.screen { display: none; }
-.screen.active { display: block; }
-#err-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 60; max-width: 92vw; background: #7a1f2b; color: #ffe3e3; border: 1px solid #ff9c9c; border-radius: 12px; padding: 10px 16px; font-size: 14px; display: none; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
-#err-banner.show { display: block; }
-#status-bar { position: fixed; top: 10px; right: 12px; z-index: 55; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); background: rgba(13,27,42,.7); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; }
-#conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #888; display: inline-block; }
-#conn-dot.ok { background: var(--green); }
-#conn-dot.bad { background: var(--red); }
-#version-tag { position: fixed; bottom: 8px; right: 12px; z-index: 55; font-size: 11px; color: var(--muted); opacity: .8; }
-#qr-box { background: #fff; padding: 8px; border-radius: 12px; width: 176px; }
-#qr-box img, #qr-box canvas { display: block; }
-.joinlink { word-break: break-all; font-size: 13px; }
-button.busy { opacity: .55; pointer-events: none; }
-.podium-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-@media (prefers-reduced-motion: reduce) { .lobby-avatar { animation: none; } }
+  /*ROOT-START*/
+  :root{
+    /* Kanton Zuerich CI, verifizierte Werte */
+    --zh-blue:#0070B4;     /* Akzent Blau */
+    --zh-deep:#00407C;     /* Dunkelblau */
+    --zh-flag:#268BCC;     /* Fahnenblau */
+    --zh-soft:#EDF5FA;     /* Softblau */
+    --zh-sky:#7AB6E2;      /* Darkmode Hellblau */
+    --zh-himmel:#78A8F0;   /* Darkmode Himmelblau */
+    --gold:#E7BC61;        /* einziger Goldakzent, sparsam */
+    --white:#FFFFFF;
+    --font-heading:'Inter','Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif;
+    --font-body:'Inter','Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif;
+    /* semantik */
+    --a1:var(--zh-sky); --a2:var(--zh-himmel); --ink:var(--white); --dim:#A9C6DE;
+    --bg0:#041d33; --bg1:#0a2f52;
+    --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.16);
+    --ok:#3FB27F; --bad:#D68A8A;
+    --silver:#D0D9E2; --bronze:var(--zh-sky);
+    --o0:#268BCC; --o1:#7AB6E2; --o2:#E7BC61; --o3:#FFFFFF;
+    --sb:34px;
+  }
+  /*ROOT-END*/
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--font-body);
+    background:radial-gradient(1200px 700px at 50% -10%, var(--bg1), var(--bg0) 70%);
+    color:var(--ink); overflow:hidden; overscroll-behavior-y:none;
+  }
+  button{font-family:inherit; color:inherit;}
+  h1,h2,h3,.logo,.codebig,.placebig{font-family:var(--font-heading);}
+  #bgc{position:fixed; inset:0; z-index:0; pointer-events:none;}
+  #confc{position:fixed; inset:0; z-index:40; pointer-events:none;}
+  #app{position:relative; z-index:1; height:calc(100% - var(--sb));}
+  .screen{display:none; height:100%; padding:clamp(10px,2.5vh,28px) clamp(12px,3vw,40px);
+    flex-direction:column; align-items:center; overflow:hidden;}
+  .screen.on{display:flex;}
+  .wrap{width:100%; max-width:1180px; margin:0 auto; display:flex; flex-direction:column;
+    align-items:center; flex:1; min-height:0;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  .glow{color:var(--a1); text-shadow:0 0 14px color-mix(in srgb,var(--a1) 55%,transparent),0 0 40px color-mix(in srgb,var(--a1) 26%,transparent);}
+  h1.logo{font-weight:900; letter-spacing:.02em; font-size:clamp(2rem,6.4vw,4.2rem); text-align:center; line-height:1.02;}
+  .tagline{letter-spacing:.1em; font-weight:600; color:var(--dim); text-align:center;
+    font-size:clamp(.62rem,1.6vw,.9rem); margin-top:8px; text-transform:uppercase;}
+  .sub{letter-spacing:.34em; font-weight:700; color:var(--dim); font-size:clamp(.7rem,1.8vw,1rem);
+    text-transform:uppercase; margin-top:6px; text-align:center;}
+  .board{margin-top:14px; font-size:clamp(.72rem,1.7vw,.95rem); color:var(--gold);
+    background:rgba(0,0,0,.28); border:1px solid color-mix(in srgb,var(--gold) 35%,transparent); border-radius:8px;
+    padding:8px 14px; letter-spacing:.06em;}
+  .credit{margin-top:18px; color:var(--dim); font-size:clamp(.7rem,1.6vw,.9rem); text-align:center;}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    background:linear-gradient(180deg, color-mix(in srgb,var(--a1) 24%,transparent), rgba(255,255,255,.04));
+    border:1px solid color-mix(in srgb,var(--a1) 55%,transparent);
+    color:var(--ink); border-radius:14px; padding:14px 26px;
+    font-size:clamp(1rem,2.2vw,1.2rem); font-weight:800; letter-spacing:.02em; cursor:pointer;
+    box-shadow:0 0 18px color-mix(in srgb,var(--a1) 20%,transparent);
+    transition:transform .12s, box-shadow .2s, opacity .2s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn[disabled]{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .btn.busy::after{content:""; width:14px; height:14px; border-radius:50%;
+    border:2px solid var(--ink); border-top-color:transparent; animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .btn.ghost{background:rgba(255,255,255,.05); border-color:var(--line); box-shadow:none;}
+  .btn.gold{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 30%,transparent),rgba(255,255,255,.04)); border-color:color-mix(in srgb,var(--gold) 55%,transparent);}
+  .btnrow{display:flex; gap:14px; margin-top:24px; flex-wrap:wrap; justify-content:center;}
+  .field{width:100%; max-width:420px; margin-top:14px;}
+  .field label{display:block; font-size:.78rem; letter-spacing:.12em; color:var(--dim);
+    text-transform:uppercase; margin-bottom:6px;}
+  .field input{width:100%; background:rgba(255,255,255,.06); border:1px solid var(--line);
+    border-radius:12px; color:var(--ink); font-size:1.25rem; font-weight:700; padding:12px 14px;
+    letter-spacing:.06em; outline:none;}
+  .field input:focus{border-color:var(--a1); box-shadow:0 0 14px color-mix(in srgb,var(--a1) 30%,transparent);}
+  #inCode{text-transform:uppercase; letter-spacing:.5em; text-align:center;}
+  .emg{display:grid; grid-template-columns:repeat(8,1fr); gap:8px; margin-top:8px; width:100%; max-width:420px;}
+  .emg button{font-size:1.45rem; padding:8px 0; background:rgba(255,255,255,.05);
+    border:1px solid var(--line); border-radius:10px; cursor:pointer; transition:transform .1s;}
+  .emg button:active{transform:scale(.92);}
+  .emg button.sel{border-color:var(--a1); background:color-mix(in srgb,var(--a1) 22%,transparent);
+    box-shadow:0 0 12px color-mix(in srgb,var(--a1) 35%,transparent);}
+  .lenrow{display:flex; gap:14px; margin-top:20px; justify-content:center; flex-wrap:wrap;}
+  .lenb{background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:16px;
+    padding:20px 30px; font-weight:900; cursor:pointer; font-size:1.2rem; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; gap:6px; transition:transform .12s, border-color .2s, box-shadow .2s;}
+  .lenb:hover{transform:translateY(-3px); border-color:var(--a1); box-shadow:0 0 22px color-mix(in srgb,var(--a1) 30%,transparent);}
+  .lenb small{font-size:.72rem; color:var(--dim); font-weight:600; letter-spacing:.04em;}
+  /* lobby */
+  .lobbygrid{display:grid; grid-template-columns:280px 1fr; gap:24px; width:100%; margin-top:16px;
+    align-items:start; flex:1; min-height:0;}
+  .qrbox{background:var(--white); border-radius:14px; padding:12px; width:248px; margin:0 auto;}
+  .codebig{font-size:clamp(2rem,6vw,3.4rem); font-weight:900; letter-spacing:.3em; text-align:center;}
+  .joinurl{display:block; text-align:center; color:var(--a1); font-size:.82rem; margin-top:8px;
+    word-break:break-all; text-decoration:none;}
+  .lpanel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px;
+    display:flex; flex-direction:column; min-height:0;}
+  #train{display:flex; flex-wrap:wrap; gap:10px; overflow:auto; padding:6px 2px; align-content:flex-start; flex:1; min-height:0;}
+  .car{display:flex; flex-direction:column; align-items:center; gap:2px;
+    border:1px solid color-mix(in srgb,var(--a1) 45%,transparent); background:rgba(255,255,255,.05);
+    border-radius:12px; padding:8px 10px; min-width:86px; animation:carin .4s ease;}
+  .car .cem{font-size:1.5rem;} .car .cnm{font-size:.72rem; color:var(--dim); max-width:96px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  @keyframes carin{from{transform:translateY(12px); opacity:0;} to{transform:none; opacity:1;}}
+  .hint{color:var(--dim); font-size:.78rem; margin-top:10px; text-align:center;}
+  /* question */
+  .qtop{display:flex; align-items:center; justify-content:space-between; width:100%; gap:14px;}
+  #route{display:flex; gap:7px; align-items:center; flex-wrap:wrap;}
+  #route i{width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,.16);
+    border:1px solid var(--line); display:inline-block;}
+  #route i.done{background:color-mix(in srgb,var(--a1) 65%,transparent);}
+  #route i.cur{background:var(--a1); box-shadow:0 0 10px var(--a1);}
+  .stopct{color:var(--dim); font-weight:700; letter-spacing:.05em; font-size:clamp(.8rem,1.8vw,1rem);}
+  #qhSec{font-weight:900; font-size:clamp(1.4rem,4vh,2.2rem); min-width:2.2ch; text-align:right;}
+  .rail{position:relative; width:100%; height:16px; margin:12px 0 6px; overflow:hidden;
+    background:repeating-linear-gradient(45deg, rgba(255,255,255,.14) 0 10px, transparent 10px 20px);
+    border-top:2px solid var(--line); border-bottom:2px solid var(--line); border-radius:4px;}
+  .rail .tr{position:absolute; top:50%; transform:translate(-50%,-50%); font-size:1.4rem;
+    filter:drop-shadow(0 0 8px var(--a1)); transition:left .18s linear;}
+  .rail.hot{border-color:var(--bad); animation:hotp 0.5s ease-in-out infinite alternate;}
+  @keyframes hotp{from{box-shadow:0 0 4px color-mix(in srgb,var(--bad) 20%,transparent);} to{box-shadow:0 0 18px color-mix(in srgb,var(--bad) 60%,transparent);}}
+  .qtext{font-size:clamp(1.15rem,2.6vh + 1vw,2rem); font-weight:800; text-align:center;
+    margin:clamp(8px,2vh,20px) 0 8px; line-height:1.3; max-width:1050px;}
+  .qstate{color:var(--dim); font-size:.95rem; text-align:center; margin-bottom:6px; max-width:900px;}
+  .opts{display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:1050px;}
+  .opt{display:flex; align-items:center; gap:12px; text-align:left;
+    border-radius:14px; padding:clamp(10px,2vh,18px) 16px; border:1px solid var(--line);
+    background:var(--panel); font-size:clamp(.95rem,1.6vh + .6vw,1.25rem); font-weight:700; line-height:1.25;}
+  .opt .sh{flex:0 0 auto; width:38px; height:38px; border-radius:10px; display:flex; align-items:center;
+    justify-content:center; font-size:1.05rem; color:#092135;}
+  .opt .otx{flex:1;}
+  .opt .ck{flex:0 0 auto; opacity:0; color:var(--a1); font-weight:900;}
+  .opt.i0 .sh{background:var(--o0);} .opt.i1 .sh{background:var(--o1);}
+  .opt.i2 .sh{background:var(--o2);} .opt.i3 .sh{background:var(--o3);}
+  button.opt{cursor:pointer; transition:transform .1s, opacity .2s, box-shadow .2s;}
+  button.opt:active{transform:scale(.99);}
+  .opts.pre button.opt{opacity:.5; pointer-events:none;}
+  .opt.pick{border-color:var(--a1); box-shadow:0 0 16px color-mix(in srgb,var(--a1) 40%,transparent);}
+  .opt.pick .ck{opacity:1;}
+  .opt.dead{opacity:.3;}
+  .opt.right{border-color:var(--ok); box-shadow:0 0 20px color-mix(in srgb,var(--ok) 45%,transparent); opacity:1;}
+  .opt.right .ck{opacity:1; color:var(--ok);}
+  #ansCount{margin-top:12px; color:var(--dim); font-weight:700; letter-spacing:.04em;}
+  .punched{margin-top:18px; text-align:center; font-weight:800; font-size:1.2rem;}
+  .punched .big{font-size:2.6rem; display:block; margin-bottom:6px;}
+  /* countdown overlay */
+  #cdov{position:fixed; inset:0; z-index:30; display:none; flex-direction:column; gap:10px;
+    align-items:center; justify-content:center; background:var(--bg0);}
+  #cdpeek{font-weight:900; letter-spacing:.16em; text-transform:uppercase;
+    font-size:clamp(1rem,3vh,1.6rem); color:var(--gold); text-shadow:0 0 18px color-mix(in srgb,var(--gold) 50%,transparent);}
+  #cdov.on{display:flex;}
+  #cdnum{font-weight:900; font-size:clamp(6rem,26vh,13rem);}
+  #cdnum.go{color:var(--ok); text-shadow:0 0 30px color-mix(in srgb,var(--ok) 70%,transparent);}
+  /* reveal */
+  .quip{margin-top:14px; font-size:clamp(1rem,2.2vh + .5vw,1.4rem); color:var(--gold);
+    font-weight:700; text-align:center; max-width:900px; line-height:1.4;}
+  .quip::before{content:"DAS ORAKEL: "; color:var(--dim); font-size:.72em; letter-spacing:.1em;}
+  .expl{margin-top:10px; color:var(--dim); font-size:.92rem; text-align:center; max-width:900px; line-height:1.5;}
+  .bars{width:100%; max-width:860px; margin-top:8px; display:flex; flex-direction:column; gap:8px;}
+  .bar{display:grid; grid-template-columns:34px 1fr 92px; gap:10px; align-items:center;}
+  .bar .sh{width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#092135; font-size:.9rem;}
+  .bar .trk{height:22px; border-radius:8px; background:rgba(255,255,255,.06); overflow:hidden;}
+  .bar .fl{height:100%; width:0; border-radius:8px; transition:width .8s cubic-bezier(.2,.8,.3,1);}
+  .bar.i0 .sh{background:var(--o0);} .bar.i1 .sh{background:var(--o1);}
+  .bar.i2 .sh{background:var(--o2);} .bar.i3 .sh{background:var(--o3);}
+  .bar.i0 .fl{background:var(--o0);} .bar.i1 .fl{background:var(--o1);}
+  .bar.i2 .fl{background:var(--o2);} .bar.i3 .fl{background:var(--o3);}
+  .bar.rt .trk{outline:1px solid color-mix(in srgb,var(--ok) 60%,transparent);}
+  .bar .ct{text-align:right; font-weight:800;}
+  .verdict{text-align:center; margin-top:clamp(8px,4vh,30px);}
+  .verdict .vem{font-size:clamp(3rem,12vh,5.5rem); display:block;}
+  .verdict .vtx{font-size:clamp(1.3rem,3.5vh,2rem); font-weight:900; margin-top:6px;}
+  .verdict .vpt{font-size:clamp(1.6rem,5vh,2.6rem); font-weight:900; margin-top:8px;}
+  .verdict .vst{color:var(--gold); font-weight:800; margin-top:6px;}
+  .verdict .vq{color:var(--dim); margin-top:12px; font-size:1rem;}
+  .verdict .vans{margin-top:12px; color:var(--dim); font-size:.95rem; white-space:pre-line; line-height:1.5;}
+  .ok{color:var(--ok);} .bad{color:var(--bad);}
+  /* leaderboard */
+  #lbwrap{width:100%; max-width:900px; flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto;}
+  #lb{position:relative; flex:1; min-height:0; margin-top:10px;}
+  .lbrow{position:absolute; left:0; right:0; display:grid; grid-template-columns:46px 40px 1fr auto auto;
+    gap:10px; align-items:center; padding:0 14px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--line);
+    transition:transform .7s cubic-bezier(.2,.85,.25,1), opacity .4s;}
+  .lbrow.hidden{opacity:0 !important; visibility:hidden; pointer-events:none;}
+  .lbrow .rk{font-weight:900; font-size:1.05em; color:var(--dim);}
+  .lbrow .em{font-size:1.25em;}
+  .lbrow .nm{font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .lbrow .fl{font-size:.85em; color:var(--gold); font-weight:800;}
+  .lbrow .sc{font-weight:900; font-variant-numeric:tabular-nums;}
+  .lbrow.p1{border-color:color-mix(in srgb,var(--gold) 70%,transparent); box-shadow:0 0 18px color-mix(in srgb,var(--gold) 22%,transparent);}
+  .lbrow.p1 .rk{color:var(--gold);}
+  .lbrow.p2{border-color:color-mix(in srgb,var(--silver) 55%,transparent);} .lbrow.p2 .rk{color:var(--silver);}
+  .lbrow.p3{border-color:color-mix(in srgb,var(--bronze) 55%,transparent);} .lbrow.p3 .rk{color:var(--bronze);}
+  .lbrow.me{background:color-mix(in srgb,var(--a1) 14%,transparent);}
+  .lbrow.climb{animation:climbf 1s ease;}
+  @keyframes climbf{0%{box-shadow:0 0 0 rgba(255,255,255,0);} 30%{box-shadow:0 0 26px color-mix(in srgb,var(--a1) 60%,transparent);} 100%{box-shadow:0 0 0 rgba(255,255,255,0);}}
+  #youline{margin-top:10px; text-align:center; color:var(--dim); font-weight:700;}
+  /* final */
+  #podium{display:flex; align-items:flex-end; justify-content:center; gap:18px; width:100%;
+    max-width:820px; height:clamp(200px,38vh,340px); margin-top:8px;}
+  .pod{flex:1; max-width:220px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    opacity:0; transform:translateY(50px); transition:opacity .6s, transform .7s cubic-bezier(.2,.9,.3,1);}
+  .pod.in{opacity:1; transform:none;}
+  .pod .pem{font-size:2.2rem;} .pod .pnm{font-weight:900; max-width:100%; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; margin-top:2px;}
+  .pod .ptitle{color:var(--gold); font-weight:800; font-size:.82rem; margin-top:2px; text-align:center; line-height:1.2;}
+  .pod .psc{color:var(--dim); font-weight:800; font-size:.95rem;}
+  .pod .bar{display:block; width:100%; border-radius:12px 12px 0 0; margin-top:10px;
+    border:1px solid var(--line); border-bottom:none;}
+  .pod.g1 .bar{height:clamp(90px,22vh,200px); background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 45%,transparent),color-mix(in srgb,var(--gold) 8%,transparent));}
+  .pod.g2 .bar{height:clamp(64px,15vh,140px); background:linear-gradient(180deg,color-mix(in srgb,var(--silver) 40%,transparent),color-mix(in srgb,var(--silver) 6%,transparent));}
+  .pod.g3 .bar{height:clamp(46px,11vh,100px); background:linear-gradient(180deg,color-mix(in srgb,var(--bronze) 40%,transparent),color-mix(in srgb,var(--bronze) 6%,transparent));}
+  .pod .mdl{font-size:2rem; margin-bottom:2px;}
+  .pod .sash{background:var(--gold); color:#092135; font-weight:900; font-size:.6rem;
+    letter-spacing:.16em; padding:2px 10px; border-radius:6px; margin:2px 0;}
+  #manifest{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px;
+    width:100%; max-width:1100px; margin-top:14px; overflow:auto; align-content:start; flex:1; min-height:0;}
+  .mcard{display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:8px 10px; font-size:.85rem;}
+  .mcard .mr{color:var(--dim); font-weight:900;} .mcard .me2{font-size:1.1rem;}
+  .mcard .mn{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;}
+  .mcard .ms{font-weight:800; font-variant-numeric:tabular-nums;}
+  .manif-title{margin-top:16px; letter-spacing:.18em; color:var(--dim); font-size:.75rem; text-transform:uppercase;}
+  .placebig{font-size:clamp(3.5rem,16vh,7rem); font-weight:900;}
+  #report{width:100%; max-width:1100px; margin-top:10px; background:var(--panel);
+    border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:10px;
+    padding:9px 14px; font-size:.8rem; font-weight:700; color:var(--ink); text-align:center;
+    white-space:pre-line; line-height:1.55;}
+  /* toast, status, debug */
+  #toast{position:fixed; top:14px; left:50%; transform:translate(-50%,-140%); z-index:60;
+    background:color-mix(in srgb,var(--zh-deep) 92%,#000); border:1px solid var(--bad); color:var(--ink);
+    padding:12px 18px; border-radius:12px; font-weight:700; max-width:min(92vw,560px);
+    transition:transform .3s; text-align:center; font-size:.95rem;}
+  #toast.show{transform:translate(-50%,0);}
+  #statusbar{position:fixed; left:0; right:0; bottom:0; height:var(--sb); z-index:50;
+    display:flex; align-items:center; gap:10px; padding:0 12px;
+    background:rgba(2,10,20,.85); border-top:1px solid var(--line);
+    font-size:.74rem; color:var(--dim);}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--bad); display:inline-block;}
+  .dot.on{background:var(--ok); box-shadow:0 0 8px var(--ok);}
+  #sbcode{letter-spacing:.16em; font-weight:800;}
+  #vtag{margin-left:auto; background:none; border:1px solid var(--line); border-radius:8px;
+    padding:3px 10px; color:var(--dim); font-size:.72rem; cursor:pointer;}
+  #vtag.err{border-color:var(--bad); color:var(--bad);}
+  #muteBtn,#homeBtn{background:none; border:1px solid var(--line); border-radius:8px;
+    padding:3px 9px; color:var(--dim); font-size:.85rem; cursor:pointer;}
+  #debug{position:fixed; inset:0; z-index:70; background:rgba(2,10,20,.96); padding:20px;
+    overflow:auto; font-size:.8rem;}
+  #debug h3{margin-bottom:8px;}
+  #debug pre{white-space:pre-wrap; word-break:break-word; background:rgba(255,255,255,.05);
+    border:1px solid var(--line); border-radius:10px; padding:12px; margin:8px 0;}
+  #debug .btnrow{margin-top:8px;}
+  #setupBanner{position:fixed; top:0; left:0; right:0; z-index:65; background:var(--zh-blue); color:var(--white);
+    padding:10px 16px; font-weight:700; text-align:center; display:none; font-size:.9rem;}
+  /* landing effects */
+  .logo{
+    background:linear-gradient(100deg,var(--a1) 0%,var(--white) 30%,var(--a2) 55%,var(--a1) 100%);
+    background-size:280% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:shimmer 7s linear infinite;
+    filter:drop-shadow(0 0 16px color-mix(in srgb,var(--a1) 40%,transparent));
+  }
+  @keyframes shimmer{to{background-position:-280% 0;}}
+  .tickline{transition:opacity .3s; color:var(--gold); font-weight:700;
+    font-size:clamp(1rem,2.4vw,1.5rem); margin-top:16px; letter-spacing:.02em;
+    min-height:2.4em; max-width:880px; text-align:center; line-height:1.4;
+    text-shadow:0 0 12px color-mix(in srgb,var(--gold) 30%,transparent);}
+  #lobTick{margin-top:10px; font-size:.74rem;}
+  #dblBan{position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:25;
+    background:color-mix(in srgb,var(--zh-deep) 88%,#000); border:1px solid var(--gold); color:var(--gold);
+    font-weight:900; letter-spacing:.1em; padding:8px 16px; border-radius:10px;
+    font-size:clamp(.68rem,2vw,1rem); white-space:nowrap;
+    animation:dblp 1s ease-in-out infinite alternate;}
+  @keyframes dblp{from{box-shadow:0 0 6px color-mix(in srgb,var(--gold) 30%,transparent);} to{box-shadow:0 0 24px color-mix(in srgb,var(--gold) 80%,transparent);}}
+  #fpConf{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:5;}
+  #fpConf i{position:absolute; top:-8%; font-style:normal; animation-name:fpfall;
+    animation-timing-function:linear; animation-fill-mode:forwards;}
+  @keyframes fpfall{to{transform:translateY(125vh) rotate(300deg);}}
+  #waitAnn{transition:opacity .3s; min-height:2.6em; max-width:460px;}
+  #codeov{position:fixed; inset:0; z-index:66; background:rgba(2,10,20,.97); display:flex;
+    flex-direction:column; align-items:center; justify-content:center; cursor:pointer;}
+  #codeovTxt{font-size:clamp(5rem,24vw,15rem); font-weight:900; letter-spacing:.24em;}
+  #codeovHint{color:var(--dim); margin-top:10px;}
+  .ht{max-width:920px; margin:0 auto; text-align:left; width:100%; padding-bottom:30px;}
+  .ht h2{color:var(--a1); font-size:1.12rem; margin:24px 0 8px; letter-spacing:.03em;}
+  .ht p,.ht li{color:var(--ink); opacity:.92; line-height:1.6; font-size:.97rem; margin:7px 0;}
+  .ht ul{padding-left:22px;}
+  .ht .kb{display:inline-block; border:1px solid var(--line); background:rgba(255,255,255,.06);
+    border-radius:6px; padding:1px 8px; font-weight:800;}
+  .ht .lbl{color:var(--a2); font-weight:800;}
+  .lobby-avatar{width:110px; height:110px; border-radius:50%; border:1px solid color-mix(in srgb,var(--a1) 40%,transparent);
+    display:grid; place-items:center; background:radial-gradient(circle, color-mix(in srgb,var(--a1) 20%,transparent), rgba(255,255,255,.05));
+    font-size:3.4rem; animation:floaty 3s ease-in-out infinite;}
+  @keyframes floaty{0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);}}
+  @media (max-width:640px){
+    .opts{grid-template-columns:1fr;}
+    .lobbygrid{grid-template-columns:1fr;}
+    .emg{grid-template-columns:repeat(6,1fr);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none !important; transition:none !important;}
+    .lobby-avatar{animation:none;}
+  }
+  body.laststop .rail{border-color:var(--gold);
+    background:repeating-linear-gradient(45deg, color-mix(in srgb,var(--gold) 32%,transparent) 0 10px, transparent 10px 20px);}
+  body.laststop .rail .tr{filter:drop-shadow(0 0 10px var(--gold));}
+  [hidden]{display:none !important;}
 </style>
 </head>
 <body>
-
-<div id="status-bar"><span id="conn-dot"></span><span id="conn-label">Demo</span></div>
-<div id="err-banner"></div>
-<div id="version-tag"></div>
-
-<!-- Startseite -->
-<div id="scr-home" class="screen">
-  <div class="app"><div class="hero">
-    <div class="badge">Townhall-Quiz</div>
-    <p id="config-notice" class="notice" style="display:none"></p>
-    <h1 id="home-title"></h1>
-    <p>Fachlich neutral, mit Verwaltungsflair und dezentem Projekt-Olymp-Vibe. Bereit für <span id="home-qcount"></span> Fragen, bis zu <span id="home-maxplayers"></span> Teilnehmende und ein Finale mit Olymp-Aufstieg.</p>
-    <div class="grid two">
-      <div class="card"><h3>Host starten</h3><p>Session erstellen, Lobby anzeigen, Quiz steuern und Ergebnisse exportieren.</p><button id="btn-host">Host-Modus öffnen</button></div>
-      <div class="card"><h3>Teilnehmen</h3><p>Mit Session-Code oder QR-Code beitreten, Namen eingeben und Avatar wählen.</p><button id="btn-join">Teilnehmeransicht öffnen</button></div>
+<canvas id="bgc"></canvas>
+<div id="setupBanner"></div>
+<div id="app">
+  <section id="s-landing" class="screen on"><div class="wrap" style="justify-content:center;">
+    <h1 class="logo" style="margin-top:6px;">Digilex</h1>
+    <div class="sub">Das Epos der VD</div>
+    <div class="tagline">Bist du unser:e Projektheld:in? Sieben Etappen zum Projekt-Olymp.</div>
+    <div class="btnrow">
+      <button class="btn" id="btnHost">Host starten</button>
+      <button class="btn ghost" id="btnJoinGo">Teilnehmen</button>
+      <button class="btn ghost" id="btnHow">So wird gespielt</button>
     </div>
-    <div class="footer">Kein Sound. Keine öffentliche Rangliste ausser Top 3.</div>
-  </div></div>
-</div>
+    <div class="tickline mono" id="insTick"></div>
+    <div class="credit">Ein Townhall-Quiz zur digitalen Verwaltung. Kanton Zuerich.</div>
+  </div></section>
 
-<!-- Host Login -->
-<div id="scr-hostlogin" class="screen">
-  <div class="app"><div class="hero">
-    <h2>Host-Zugang</h2>
-    <p>Admin-Code eingeben. Der Standard steht im QUIZ-Block dieser Datei und sollte vor produktivem Einsatz geändert werden.</p>
-    <input type="password" id="host-pw" placeholder="Admin-Code" />
-    <div class="actions"><button id="btn-create">Neue Session erstellen</button><button class="secondary" id="btn-login-back">Zurück</button></div>
-    <p id="login-err" style="color:var(--red)"></p>
-  </div></div>
-</div>
+  <section id="s-howto" class="screen"><div class="wrap" style="justify-content:flex-start; overflow:auto;">
+    <div class="ht">
+      <button class="btn ghost" id="btnHowBack" style="padding:8px 18px; font-size:.9rem;">Zurueck zum Start</button>
+      <h1 class="glow" style="font-size:clamp(1.5rem,4vw,2.3rem); margin-top:14px;">So wird gespielt</h1>
+      <h2>Kurz fuer Teilnehmende</h2>
+      <ul>
+        <li>QR-Code auf dem grossen Bildschirm scannen, oder die App oeffnen, auf <span class="lbl">Teilnehmen</span> tippen und den vierstelligen Code eingeben. Ein spaeterer Einstieg ist jederzeit moeglich.</li>
+        <li>Namen eingeben (maximal 16 Zeichen), ein Reise-Emblem waehlen und in der Lobby warten.</li>
+        <li>Nach dem 3, 2, 1 Countdown die Antwort auswaehlen und absenden. Bei Mehrfachauswahl koennen zwei Antworten richtig sein. Schnell und richtig gewinnt.</li>
+      </ul>
+      <h2>Kurz fuer den Host</h2>
+      <ul>
+        <li>Auf dem Startbildschirm <span class="lbl">Host starten</span> tippen und den Admin-Code eingeben.</li>
+        <li>Rundenlaenge waehlen (5, 10 oder 15 Fragen).</li>
+        <li>Lobby teilen: Teilnehmende scannen den QR oder nutzen den Code. Auf den Code tippen vergroessert ihn.</li>
+        <li><span class="lbl">Los geht die Reise</span> tippen, sobald alle an Bord sind.</li>
+      </ul>
+      <h2>Punkte und Serien</h2>
+      <p>Eine richtige Antwort bringt zwischen 500 Punkten (am Ende der Zeit) und 1000 Punkten (sofort), Tempo zaehlt also. Jede weitere richtige Antwort in Folge bringt zusaetzlich +100, bis maximal +500. Bei Mehrfachauswahl gibt es Teilpunkte, wenn nur ein Teil richtig gewaehlt und nichts Falsches angetippt wurde. Eine falsche oder verpasste Antwort bringt null und setzt die Serie zurueck. Bei der letzten Frage zaehlt alles doppelt.</p>
+      <h2>Gegen Bots spielen</h2>
+      <p>In der Lobby ruft der Host per Tastatur eine Bot-Truppe: <span class="kb">B</span> = 5, <span class="kb">X</span> = 10, <span class="kb">Q</span> = 15, <span class="kb">T</span> = 20. Bots antworten mit zufaelligem Tempo und zufaelliger Trefferquote, ideal zum Testen bei voller Klassengroesse.</p>
+      <h2>Wieder verbinden und spaeter beitreten</h2>
+      <p>Wer den Code hat, kann jederzeit mitten im Spiel beitreten und wird ab der naechsten Frage eingereiht. Laedt ein Handy neu, setzt es die Sitzung mit dem Punktestand fort. Laedt der Host neu, laeuft das Spiel weiter.</p>
+      <h2>Wenn etwas nicht geht</h2>
+      <ul>
+        <li>Version-Tag unten rechts antippen. Es oeffnet das Debug-Panel mit Live-State und Fehlerlog, und <span class="lbl">Log kopieren</span> legt alles in die Zwischenablage.</li>
+      </ul>
+    </div>
+  </div></section>
 
-<!-- Join -->
-<div id="scr-join" class="screen">
-  <div class="app"><div class="hero">
-    <h2>Teilnehmen</h2>
-    <div class="grid two">
-      <div>
-        <label>Session-Code</label>
-        <input id="join-code" placeholder="6-stelliger Code" inputmode="numeric" />
-        <label>Name</label>
-        <input id="join-name" placeholder="Ihr Name" maxlength="20" />
-        <div class="actions"><button id="btn-enter">Beitreten</button><button class="secondary" id="btn-join-back">Zurück</button></div>
-        <p id="join-err" style="color:var(--red)"></p>
+  <section id="s-hostlogin" class="screen"><div class="wrap" style="justify-content:center;">
+    <h1 class="glow" style="font-size:clamp(1.4rem,5vw,2rem);">Host-Zugang</h1>
+    <div class="field"><label>Admin-Code</label><input id="hostPw" type="password" autocomplete="off" placeholder="Admin-Code"></div>
+    <div class="btnrow"><button class="btn" id="btnCreate">Weiter</button>
+      <button class="btn ghost" id="btnLoginBack">Zurueck</button></div>
+    <p id="loginErr" class="hint" style="color:var(--bad); min-height:1.2em;"></p>
+  </div></section>
+
+  <section id="s-setup" class="screen"><div class="wrap" style="justify-content:center;">
+    <h1 class="glow" style="font-size:clamp(1.4rem,4vw,2.2rem);">Wie lang soll die Reise sein?</h1>
+    <div class="sub" style="letter-spacing:.16em;">Fragen werden zufaellig aus dem Pool gezogen</div>
+    <div class="lenrow" id="lenRow">
+      <button class="lenb" id="btnLen5">5<small>Kurzstrecke</small></button>
+      <button class="lenb" id="btnLen10">10<small>Standard</small></button>
+      <button class="lenb" id="btnLen15">15<small>Die volle Odyssee</small></button>
+    </div>
+    <div class="btnrow"><button class="btn ghost" id="btnSetupBack">Zurueck</button></div>
+  </div></section>
+
+  <section id="s-join" class="screen"><div class="wrap" style="justify-content:center; overflow:auto;">
+    <h1 class="glow" style="font-size:clamp(1.4rem,5vw,2rem);">Ticket loesen</h1>
+    <div class="field"><label>Spielcode</label><input id="inCode" maxlength="4" autocomplete="off" placeholder="ABCD"></div>
+    <div class="field"><label>Ihr Name (maximal 16)</label><input id="inName" maxlength="16" autocomplete="off" placeholder="Passagier:in"></div>
+    <div class="field"><label>Reise-Emblem waehlen</label><div class="emg" id="emg"></div></div>
+    <div class="btnrow"><button class="btn" id="btnBoard">An Bord</button>
+      <button class="btn ghost" id="btnBackJ">Zurueck</button></div>
+  </div></section>
+
+  <section id="s-lobby" class="screen"><div class="wrap">
+    <div class="board mono" id="lobbyLine">SERVICE: BEREIT</div>
+    <div class="lobbygrid">
+      <div class="lpanel" style="align-items:center;">
+        <div class="sub" style="letter-spacing:.16em; margin-bottom:8px;">Scannen und einsteigen</div>
+        <div class="qrbox"><div id="qr"></div></div>
+        <a class="joinurl" id="joinlink" target="_blank" rel="noopener"></a>
+        <div class="codebig glow" id="codebig" style="margin-top:8px; cursor:pointer;" title="Antippen zum Vergroessern"></div>
+        <div class="tickline mono" id="lobTick"></div>
       </div>
-      <div>
-        <h3>Avatar wählen</h3>
-        <div class="avatar-grid" id="avatar-grid"></div>
+      <div class="lpanel">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <strong id="plc">0 an Bord</strong>
+          <span class="hint" style="margin:0;">Bots: <b>B</b>=5, <b>X</b>=10, <b>Q</b>=15, <b>T</b>=20</span>
+          <button class="btn ghost" id="btnSndChk" style="padding:4px 10px; font-size:.75rem;">Soundcheck</button>
+        </div>
+        <div id="train"></div>
+        <button class="btn" id="btnStart" style="margin-top:12px;" disabled>Warte auf Passagiere</button>
       </div>
     </div>
-  </div></div>
+  </div></section>
+
+  <section id="s-wait" class="screen"><div class="wrap" style="justify-content:center;">
+    <div class="lobby-avatar" id="waitEm">🦉</div>
+    <h1 style="font-size:clamp(1.4rem,6vw,2rem); margin-top:14px;">An Bord, <span id="waitNm"></span>!</h1>
+    <div class="sub" style="letter-spacing:.14em; margin-top:10px;">Warten am Perron</div>
+    <div class="board mono" id="waitCt" style="margin-top:16px;">1 PASSAGIER:IN AN BORD</div>
+    <div class="hint" id="waitAnn"></div>
+    <div class="hint">Blick auf den grossen Bildschirm. Der Host startet die Reise.</div>
+  </div></section>
+
+  <section id="s-qh" class="screen"><div class="wrap">
+    <div class="qtop">
+      <div id="route"></div>
+      <div class="stopct" id="stopct"></div>
+      <div id="qhSec">--</div>
+    </div>
+    <div class="rail" id="railH"><span class="tr">🚋</span></div>
+    <div class="qtext" id="qhText"></div>
+    <div class="qstate" id="qhState"></div>
+    <div class="opts" id="qhOpts"></div>
+    <div id="ansCount">0 / 0 Tickets entwertet</div>
+    <div class="btnrow" style="margin-top:10px;"><button class="btn ghost" id="btnReveal">Jetzt aufloesen</button></div>
+  </div></section>
+
+  <section id="s-qp" class="screen"><div class="wrap">
+    <div class="qtop"><div class="stopct" id="stopctP"></div><div id="qpSec" class="mono" style="font-weight:900;">--</div></div>
+    <div class="rail" id="railP"><span class="tr">🚋</span></div>
+    <div class="qtext" id="qpText" style="font-size:clamp(1rem,2.4vh + .6vw,1.4rem);"></div>
+    <div class="qstate" id="qpState"></div>
+    <div class="qstate" id="qpHint" style="color:var(--gold);"></div>
+    <div class="opts" id="qpOpts"></div>
+    <div class="btnrow" style="margin-top:12px;"><button class="btn" id="btnSubmit" disabled>Antwort absenden</button></div>
+    <div class="punched" id="punched" style="display:none;"><span class="big">🎫</span>Ticket entwertet!<br>
+      <span style="color:var(--dim); font-weight:600; font-size:.9rem;">Warten auf die Aufloesung</span></div>
+  </div></section>
+
+  <section id="s-rvh" class="screen"><div class="wrap">
+    <div class="stopct" id="rvStop"></div>
+    <div class="qtext" id="rvText"></div>
+    <div class="opts" id="rvOpts" style="max-width:860px;"></div>
+    <div class="bars" id="bars"></div>
+    <div class="stopct" id="rvFast" style="margin-top:8px;"></div>
+    <div class="quip" id="quip"></div>
+    <div class="expl" id="rvExpl"></div>
+    <div class="btnrow" style="margin-top:auto; padding-top:10px;"><button class="btn" id="btnBoardShow">Rangliste</button></div>
+  </div></section>
+
+  <section id="s-rvp" class="screen"><div class="wrap" style="justify-content:center;">
+    <div class="verdict">
+      <span class="vem" id="vEm"></span>
+      <div class="vtx" id="vTx"></div>
+      <div class="vpt" id="vPt"></div>
+      <div class="vst" id="vSt"></div>
+      <div class="vq" id="vQ"></div>
+      <div class="vans" id="vAns"></div>
+    </div>
+  </div></section>
+
+  <section id="s-board" class="screen"><div class="wrap">
+    <div style="display:flex; align-items:baseline; gap:14px; width:100%; max-width:900px; justify-content:space-between;">
+      <h1 class="glow" style="font-size:clamp(1.2rem,3.5vw,1.8rem);">Rangliste</h1>
+      <div class="stopct" id="lbStop"></div>
+    </div>
+    <div id="lbwrap"><div id="lb"></div><div id="youline"></div></div>
+    <div class="btnrow" id="nextRow" style="margin-top:12px;"><button class="btn" id="btnNext">Naechste Etappe</button></div>
+  </div></section>
+
+  <section id="s-fh" class="screen"><div class="wrap">
+    <h1 class="glow" id="fhTitle" style="font-size:clamp(1.4rem,4vw,2.2rem); margin-top:4px;">Der Projekt-Olymp ruft</h1>
+    <div id="podium">
+      <div class="pod g2" id="pod2"><div class="mdl">🥈</div><div class="pem"></div><div class="pnm"></div><div class="ptitle"></div><div class="psc"></div><span class="bar"></span></div>
+      <div class="pod g1" id="pod1"><div class="mdl">🥇</div><div class="sash">MVP</div><div class="pem"></div><div class="pnm"></div><div class="ptitle"></div><div class="psc"></div><span class="bar"></span></div>
+      <div class="pod g3" id="pod3"><div class="mdl">🥉</div><div class="pem"></div><div class="pnm"></div><div class="ptitle"></div><div class="psc"></div><span class="bar"></span></div>
+    </div>
+    <div id="report" hidden></div>
+    <div class="manif-title" id="mtTitle" hidden>Vollstaendiges Passagierverzeichnis</div>
+    <div id="manifest" hidden></div>
+    <div class="btnrow" style="margin-top:10px;">
+      <button class="btn" id="btnCeleb" hidden>Feier beenden</button>
+      <button class="btn ghost" id="btnCopyRes" hidden>Ergebnisse kopieren</button>
+      <button class="btn ghost" id="btnCsv" hidden>CSV exportieren</button>
+      <button class="btn ghost" id="btnAgain" hidden>Neue Runde</button>
+    </div>
+  </div></section>
+
+  <section id="s-fp" class="screen"><div class="wrap" style="justify-content:center;">
+    <div class="placebig glow" id="fpPlace"></div>
+    <div style="font-size:2.2rem; margin-top:4px;" id="fpEm"></div>
+    <div style="font-weight:900; font-size:1.4rem;" id="fpNm"></div>
+    <div style="color:var(--dim); font-weight:800; margin-top:6px;" id="fpSc"></div>
+    <div class="vans" id="fpStats" style="text-align:center;"></div>
+    <div class="vq" style="color:var(--gold); font-weight:700; margin-top:14px; text-align:center; max-width:440px;" id="fpQ"></div>
+    <div class="credit">Die digitale Verwaltung dankt fuer die Reise.</div>
+  </div></section>
 </div>
-
-<!-- Host -->
-<div id="scr-host" class="screen">
-  <div class="app"><div class="hero">
-    <div class="badge">Host</div>
-    <h2>Session <span class="session-code" id="host-code"></span></h2>
-    <div id="host-main"></div>
-  </div></div>
+<div id="cdov"><div id="cdnum"></div><div id="cdpeek">Nicht spicken! 🙈</div></div>
+<div id="dblBan" class="mono" hidden>LETZTE FRAGE, DOPPELTE PUNKTE</div>
+<div id="codeov" hidden>
+  <div class="sub" style="letter-spacing:.24em;">Beitreten mit Code</div>
+  <div id="codeovTxt" class="glow mono"></div>
+  <div id="codeovHint">Irgendwo tippen zum Schliessen</div>
 </div>
-
-<!-- Player -->
-<div id="scr-player" class="screen">
-  <div class="app"><div class="hero" id="player-main"></div></div>
+<div id="fpConf"></div>
+<canvas id="confc"></canvas>
+<div id="toast" role="alert"></div>
+<div id="statusbar">
+  <button id="homeBtn" title="Zurueck zum Start">Start</button>
+  <span class="dot" id="conn"></span><span id="connt">verbinde</span>
+  <span id="sbcode" class="mono"></span>
+  <button id="muteBtn">🔊</button>
+  <button id="vtag" class="mono">Digilex v3.0</button>
 </div>
-
-<!-- Firebase compat SDK und QR-Bibliothek per CDN. Ohne Firebase SDK zeigt die App eine sichtbare Fehlermeldung, ohne qrcodejs bleibt der klickbare Link als Fallback. -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
+<div id="debug" hidden>
+  <h3>Debug-Panel</h3>
+  <div class="hint" style="text-align:left; margin:2px 0 8px;">Digilex: Das Epos der VD, Kanton Zuerich</div>
+  <pre id="dbmeta"></pre>
+  <h3>Phasenverlauf (neueste zuerst)</h3>
+  <pre id="dbtrace"></pre>
+  <h3>Fehlerlog (neueste zuerst)</h3>
+  <pre id="dblog"></pre>
+  <div class="btnrow">
+    <button class="btn ghost" id="dbCopy">Log kopieren</button>
+    <button class="btn ghost" id="dbClose">Schliessen</button>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
 <script>
 'use strict';
-
-/* ============================================================
-   FIREBASE-KONFIGURATION (der einzige Block, den man anfassen muss)
-
-   1) console.firebase.google.com: Projekt erstellen
-   2) Build > Realtime Database > Datenbank erstellen (europe-west1),
-      "Im Testmodus starten" wählen. Fertig, keine Regeln nötig.
-   3) Zahnrad > Projekteinstellungen > Meine Apps > Web-App (</>)
-      anlegen und die Config-Werte unten einsetzen.
-   4) WICHTIG: databaseURL muss vorhanden sein und zur Region passen.
-      Der Konsolen-Schnipsel lässt das Feld oft weg. Muster:
-      https://PROJEKTNAME-default-rtdb.europe-west1.firebasedatabase.app
-      Die exakte URL steht oben in der Realtime-Database-Ansicht.
-
-   Hinweis: Testmodus-Regeln laufen nach 30 Tagen ab, danach meldet
-   die App "Permission denied". Fix: Firebase-Konsole > Realtime
-   Database > Regeln, entweder das Datum hochsetzen oder dauerhaft
-   diese Regeln veröffentlichen:
-   { "rules": { "sessions": { "$session": { ".read": true, ".write": true } } } }
-   ============================================================ */
+/* =====================================================================
+   FIREBASE-KONFIGURATION  (databaseURL muss zur Region passen)
+   ===================================================================== */
 const firebaseConfig = {
   apiKey: "AIzaSyDpPPvcNkP8vHiRCyZTg9EwD8lHUO5HEZk",
   authDomain: "digilex-quiz.firebaseapp.com",
@@ -184,952 +574,1466 @@ const firebaseConfig = {
   messagingSenderId: "77721487079",
   appId: "1:77721487079:web:ef136b4724e9c1c1120442"
 };
-/* ============================================================ */
-
-/* ================== QUIZ-DATEN (frei editierbar) ==================
-   Schema pro Frage: { id, type: single|multi|truefalse, text,
-   options[], correct: [Indizes ab 0], seconds, explanation, icon }
-   Beim Laden werden alle Fragen automatisch validiert. */
-const QUIZ = {
-  title: "Digilex - Das Epos der VD - bist du unser:e Projektheld:in",
-  maxPlayers: 30,
-  hostPassword: "olymp2027",
-  startText: "Der Projekt-Olymp ruft. Ihre digitale Odyssee beginnt.",
-  questions: [
-    {
-      id: "q1",
-      type: "single",
-      text: "Wann treten die neuen digitalen Behördenprozesse in Kraft?",
-      options: [
-        "Ab dem 1. Januar 2027.",
-        "Sobald das letzte Faxgerät im Kanton feierlich beerdigt wurde.",
-        "Gestern. Aber wir alle haben die Mail im Spam-Ordner übersehen.",
-        "Ab dem 1. Juli 2027 gemeinsam mit dem BEKJ."
-      ],
-      correct: [0],
-      seconds: 35,
-      explanation: "Ab dem 1. Januar 2027 treten die neuen digitalen Behördenprozesse in Kraft. Damit beginnt ein wichtiger Schritt in Richtung moderner, durchgängiger und digital unterstützter Verwaltungspraxis, ganz ohne feierliche Fax-Bestattung.",
-      icon: "1/7 - Erster Schritt der Odyssee zum digitalen Helden ist getan"
-    },
-    {
-      id: "q2",
-      type: "multi",
-      text: "Wer ist zur Nutzung der digitalen Dienste verpflichtet?",
-      hint: "Mehrfachauswahl möglich, 2 Antworten sind richtig.",
-      options: [
-        "Verwaltungsbehörden untereinander.",
-        "Berufsmässige Vertretung, z. B. Anwälte, Treuhänder.",
-        "Nur ausländische Unternehmen und Grosskonzerne.",
-        "Alle Einwohnerinnen und Einwohner des Kantons Zürich, die sich nach 22:00 Uhr noch aktiv über die lärmenden Nachbarn beschweren wollen."
-      ],
-      correct: [0, 1],
-      seconds: 30,
-      explanation: "Zur Nutzung der digitalen Dienste verpflichtet sind Verwaltungsbehörden im Austausch untereinander sowie berufsmässige Vertretungen, zum Beispiel Anwältinnen, Anwälte oder Treuhänderinnen und Treuhänder. Damit wird der digitale Kanal dort verbindlich, wo Verfahren besonders regelmässig, professionell und behördennah geführt werden. Die nächtliche Nachbarschaftsbeschwerde bleibt davon heldenhaft unberührt.",
-      icon: "2/7 - Der zweite Schritt auf dem digitalen Behördenpfad"
-    },
-    {
-      id: "q3",
-      type: "single",
-      text: "Welches Login wird beim Zürich Konto standardmässig eingesetzt?",
-      options: [
-        "SwissID",
-        "AGOV, schweizweites Behörden-Login",
-        "Eine beglaubigte ID-Kopie, die am AFI-Schalter eingereicht wird",
-        "Meine gespeicherte Google- oder Apple-ID"
-      ],
-      correct: [1],
-      seconds: 40,
-      explanation: "Beim Zürich Konto wird standardmässig AGOV eingesetzt, das schweizweite Behörden-Login. Damit wird der Zugang zu digitalen Behördenleistungen einheitlicher, sicherer und anschlussfähig über Verwaltungsgrenzen hinweg. Der digitale Heldenschritt führt hier also nicht über Google, Apple oder den Schalter, sondern über das Behörden-Login.",
-      icon: "3/7 - Das Tor zum digitalen Behördenzugang wird geöffnet"
-    },
-    {
-      id: "q4",
-      type: "truefalse",
-      text: "Was passiert, wenn Sie künftig ein Gesuch digital bei der Behörde einreichen?",
-      statement: "Wenn Sie den digitalen Weg wählen, erhalten Sie die Antwort der Behörde weiterhin per Post.",
-      options: ["Wahr", "Falsch"],
-      correct: [1],
-      seconds: 40,
-      explanation: "",
-      icon: "4/7 - Der digitale Pfad führt weiter zur behördlichen Antwort"
-    },
-    {
-      id: "q5",
-      type: "multi",
-      text: "Welche elektronischen Mittel sind laut den neuen Vorgaben für bestimmte, definierte sichere Kanäle rechtlich anerkannt?",
-      hint: "Mehrfachauswahl möglich, 2 Antworten sind richtig.",
-      options: [
-        "Eine eingescannte handschriftliche Unterschrift.",
-        "Eine qualifizierte elektronische Signatur, QES.",
-        "Das AGOV-Login.",
-        "Ein digitaler Schwur mit der rechten Hand auf der Computermaus."
-      ],
-      correct: [1, 2],
-      seconds: 45,
-      explanation: "Für bestimmte, definierte sichere Kanäle sind rechtlich anerkannte elektronische Mittel vorgesehen, insbesondere die qualifizierte elektronische Signatur, QES, sowie das AGOV-Login. Damit wird der digitale Weg nicht nur schneller, sondern auch rechtlich belastbar. Der Schwur auf die Computermaus bleibt hingegen ein eher mythologisches Ritual ohne Rechtswirkung.",
-      icon: "5/7 - Das Siegel des digitalen Helden wird anerkannt"
-    },
-    {
-      id: "q6",
-      type: "single",
-      text: "Welche Methode ist ab 2027 für die digitale Kommunikation mit den Behörden nicht zulässig?",
-      options: [
-        "Eine ungeschützte E-Mail-Adresse für Versand bzw. Kommunikation.",
-        "Das Zürich Konto mit AGOV-Login.",
-        "Ein sicheres E-Mail-System wie IncaMail oder PrivaSphere mit QES.",
-        "Die Plattform Justitia.Swiss für strittige Verfahren."
-      ],
-      correct: [0],
-      seconds: 45,
-      explanation: "Eine ungeschützte E-Mail-Adresse ist für die digitale Kommunikation mit den Behörden ab 2027 nicht zulässig. Vorgesehen sind sichere und nachvollziehbare digitale Kanäle, zum Beispiel das Zürich Konto mit AGOV-Login, sichere E-Mail-Systeme wie IncaMail oder PrivaSphere mit QES sowie Justitia.Swiss für strittige Verfahren. Der digitale Heldenpfad führt also nicht durch das offene E-Mail-Tal, sondern über gesicherte Kanäle.",
-      icon: "6/7 - Der sichere Kanal durch das digitale Meer"
-    },
-    {
-      id: "q7",
-      type: "single",
-      text: "Wer hat es erfunden?",
-      options: [
-        "Ricola",
-        "Der Kanton",
-        "Ein antikes Projektorakel mit WLAN-Anschluss",
-        "Eine interdepartementale Heldengruppe auf digitaler Odyssee"
-      ],
-      correct: [1],
-      seconds: 45,
-      explanation: "",
-      icon: "7/7 - Die letzte Etappe: Der digitale Held erreicht den Projekt-Olymp"
-    }
-  ],
-  podium: [
-    { rank: 1, title: "Athena Aktenklar", text: "Hat den Paragrafen-Nebel geteilt, den digitalen Pfad erkannt und steigt verdient in den Projekt-Olymp auf." },
-    { rank: 2, title: "Hermes Häkchenschnell", text: "War schneller als der Dienstweg erlaubt und hat die Antworten mit göttlicher Treffsicherheit zugestellt." },
-    { rank: 3, title: "Herakles Formularis", text: "Hat sieben Quiz-Abenteuer bezwungen und den Formularberg mit Würde, Wissen und leichtem Schulterzucken erklommen." }
-  ]
-};
-
-const heroProfiles = [
-  { id: 'oracle', title: 'Orakel der Aktenlage', rule: 'Hohe Trefferquote, aber nicht Top 3.', text: 'Sie haben vielleicht nicht den Olymp erklommen, aber Ihre Antworten hatten verdächtig oft recht.', icon: 'Aktenblatt mit kleinem Orakel-Stern' },
-  { id: 'halbschritt', title: 'Hermes im Halbschritt', rule: 'Sehr schnelle Antworten mit einigen Fehlgriffen.', text: 'Blitzschnell unterwegs, gelegentlich war der Dienstweg noch nicht ganz fertig ausgeschildert.', icon: 'Geflügelter Schuh neben einem Häkchen' },
-  { id: 'formular', title: 'Formular-Flüster:in', rule: 'Eher langsam, aber häufig richtig.', text: 'Sie klicken nicht hektisch, Sie verhandeln mit der Antwort, bis sie sich freiwillig ergibt.', icon: 'Formular mit sanfter Sprechblase und Häkchen' },
-  { id: 'pfadfinder', title: 'Paragrafen-Pfadfinder:in', rule: 'Solide Gesamtleistung mit ausgeglichener Geschwindigkeit.', text: 'Wenn der Weg unklar wird, suchen Sie nicht die Abkürzung, sondern die Rechtsgrundlage.', icon: 'Wegweiser mit Paragrafenzeichen' },
-  { id: 'dienstweg', title: 'Dienstweg-Dompteur:in', rule: 'Mehrere richtige Antworten in Folge.', text: 'Sie haben den Dienstweg gezähmt. Er hat kurz gezuckt, aber am Ende nachgegeben.', icon: 'Geschwungener Pfad zum Ziel-Häkchen' },
-  { id: 'haekchen', title: 'Hüter:in des Häkchens', rule: 'Stark bei Mehrfachauswahl-Fragen.', text: 'Sie wissen: Ein kleines Häkchen kann manchmal ein grosses Verwaltungsabenteuer entscheiden.', icon: 'Schild mit Häkchen' },
-  { id: 'nebel', title: 'Bezwinger:in des Aktennebels', rule: 'Verbesserung nach schwachem Start.', text: 'Erst Nebel, dann Durchblick. Eine klassische Held:innenentwicklung in sieben Fragen.', icon: 'Aktenstapel mit klarer Linie' },
-  { id: 'kanal', title: 'Kanal-Kompass', rule: 'Stark bei Login, Kanälen und Kommunikation.', text: 'Sie haben gespürt, welcher Kanal trägt und welcher eher Richtung Fax-Museum führt.', icon: 'Kompass mit digitalem Verbindungspunkt' },
-  { id: 'pegasus', title: 'Projekt-Pegasus', rule: 'Konstant mittlere bis gute Leistung.', text: 'Nicht laut, nicht wild, aber zuverlässig mit Schwung Richtung Ziel.', icon: 'Flügel über einer Projektlinie' },
-  { id: 'argo', title: 'Argonaut:in der Umsetzung', rule: 'Durchschnittlich, aber zuverlässig.', text: 'Sie sind Teil der Crew, halten Kurs und wissen: Kein Heldenepos entsteht allein.', icon: 'Schiff auf digitalem Wellenpfad' },
-  { id: 'sphinx', title: 'Sphinx der Schnittstelle', rule: 'Wechselhaft mit mindestens einem starken Treffer.', text: 'Sie bleiben rätselhaft, aber wenn es zählt, kommt plötzlich die richtige Antwort aus dem Nichts.', icon: 'Fragezeichen zwischen verbundenen Knoten' },
-  { id: 'offizier', title: 'Odyssee-Offizier:in', rule: 'Teilnahme bis zum Schluss.', text: 'Sie haben die Reise vollständig absolviert. Das allein verdient ein digitales Lorbeerblatt.', icon: 'Etappenkarte mit Lorbeerblatt' },
-  { id: 'akrobat', title: 'Akten-Akrobat:in', rule: 'Sehr schnell und aktiv.', text: 'Sie jonglieren Antworten, Fristen und Bauchgefühl mit beachtlicher Eleganz.', icon: 'Balancierender Aktenstapel mit Stern' },
-  { id: 'virtuos', title: 'Verfahrens-Virtuos:in', rule: 'Stark bei rechtlich-fachlichen Fragen.', text: 'Sie spielen auf der Klaviatur der Verfahren, auch wenn manche Tasten noch beschriftet werden müssen.', icon: 'Ablaufdiagramm mit Häkchen' },
-  { id: 'zwischenschritt', title: 'Held:in des gepflegten Zwischenschritts', rule: 'Niedrige bis mittlere Punktzahl, aber vollständige Teilnahme.', text: 'Sie wissen: Jede grosse digitale Reise beginnt mit einem sauber abgestimmten nächsten Schritt.', icon: 'Treppe mit hervorgehobenem nächsten Schritt' }
+/* ===================================================================== */
+const APP_VERSION='v3.0 (2026-08-19)';
+const ROOT='sessions';
+const HOST_PASSWORD='olymp2027';
+const TOP_N=10, COUNTDOWN_MS=3000, CALL_TIMEOUT=9000;
+/* ================== QUIZ-DATEN ==================
+   Schema: {id, tier:'core'|'depth'|'fun', type:'single'|'multi'|'truefalse',
+   q, options[], correct:[Indizes ab 0], seconds, explanation, icon, hint, statement} */
+const QUESTIONS=[
+  { id:"q1", tier:"core", type:"single", seconds:35,
+    q:"Wann treten die neuen digitalen Behoerdenprozesse in Kraft?",
+    options:["Ab dem 1. Januar 2027","Sobald das letzte Faxgeraet im Kanton feierlich beerdigt wurde","Gestern, aber wir haben die Mail im Spam-Ordner uebersehen","Ab dem 1. Juli 2027 gemeinsam mit dem BEKJ"],
+    correct:[0],
+    explanation:"Ab dem 1. Januar 2027 treten die neuen digitalen Behoerdenprozesse in Kraft. Ein wichtiger Schritt zu moderner, durchgaengiger Verwaltungspraxis, ganz ohne feierliche Fax-Bestattung.",
+    icon:"1 von 7, erster Schritt der Odyssee" },
+  { id:"q2", tier:"core", type:"multi", seconds:30, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
+    q:"Wer ist zur Nutzung der digitalen Dienste verpflichtet?",
+    options:["Verwaltungsbehoerden untereinander","Berufsmaessige Vertretung, zum Beispiel Anwaelte, Treuhaender","Nur auslaendische Unternehmen und Grosskonzerne","Alle, die sich nach 22 Uhr ueber lärmende Nachbarn beschweren wollen"],
+    correct:[0,1],
+    explanation:"Verpflichtet sind Verwaltungsbehoerden im Austausch untereinander sowie berufsmaessige Vertretungen wie Anwaeltinnen, Anwaelte oder Treuhaenderinnen. Dort, wo Verfahren regelmaessig und behoerdennah gefuehrt werden.",
+    icon:"2 von 7, der Behoerdenpfad" },
+  { id:"q3", tier:"core", type:"single", seconds:40,
+    q:"Welches Login wird beim Zuerikonto standardmaessig eingesetzt?",
+    options:["SwissID","AGOV, schweizweites Behoerden-Login","Eine beglaubigte ID-Kopie am Schalter","Meine gespeicherte Google- oder Apple-ID"],
+    correct:[1],
+    explanation:"Beim Zuerikonto wird standardmaessig AGOV eingesetzt, das schweizweite Behoerden-Login. Einheitlicher, sicherer und anschlussfaehig ueber Verwaltungsgrenzen hinweg.",
+    icon:"3 von 7, das Tor zum Zugang" },
+  { id:"q4", tier:"core", type:"truefalse", seconds:40,
+    q:"Was passiert, wenn Sie kuenftig ein Gesuch digital einreichen?",
+    statement:"Aussage: Wenn Sie den digitalen Weg waehlen, erhalten Sie die Antwort der Behoerde weiterhin per Post.",
+    options:["Wahr","Falsch"],
+    correct:[1],
+    explanation:"Falsch. Wer den digitalen Weg waehlt, erhaelt die Antwort auch digital, medienbruchfrei ueber das Zuerikonto.",
+    icon:"4 von 7, die behoerdliche Antwort" },
+  { id:"q5", tier:"core", type:"multi", seconds:45, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
+    q:"Welche elektronischen Mittel sind fuer bestimmte sichere Kanaele rechtlich anerkannt?",
+    options:["Eine eingescannte handschriftliche Unterschrift","Eine qualifizierte elektronische Signatur, QES","Das AGOV-Login","Ein digitaler Schwur mit der rechten Hand auf der Computermaus"],
+    correct:[1,2],
+    explanation:"Fuer definierte sichere Kanaele sind insbesondere die qualifizierte elektronische Signatur (QES) sowie das AGOV-Login vorgesehen. Der Schwur auf die Maus bleibt ein mythologisches Ritual ohne Rechtswirkung.",
+    icon:"5 von 7, das Siegel des Helden" },
+  { id:"q6", tier:"core", type:"single", seconds:45,
+    q:"Welche Methode ist ab 2027 fuer die digitale Kommunikation mit den Behoerden nicht zulaessig?",
+    options:["Eine ungeschuetzte E-Mail-Adresse","Das Zuerikonto mit AGOV-Login","Ein sicheres E-Mail-System wie IncaMail oder PrivaSphere mit QES","Die Plattform justitia.swiss fuer strittige Verfahren"],
+    correct:[0],
+    explanation:"Eine ungeschuetzte E-Mail-Adresse ist nicht zulaessig. Vorgesehen sind sichere, nachvollziehbare Kanaele wie das Zuerikonto mit AGOV, IncaMail oder PrivaSphere mit QES sowie justitia.swiss.",
+    icon:"6 von 7, der sichere Kanal" },
+  { id:"q7", tier:"core", type:"single", seconds:45,
+    q:"Wer hat es erfunden?",
+    options:["Ricola","Der Kanton","Ein antikes Projektorakel mit WLAN-Anschluss","Eine interdepartementale Heldengruppe auf digitaler Odyssee"],
+    correct:[1],
+    explanation:"Der Kanton. Der digitale Held erreicht den Projekt-Olymp.",
+    icon:"7 von 7, der Projekt-Olymp" },
+  { id:"q8", tier:"depth", type:"single", seconds:35,
+    q:"Wofuer steht die Abkuerzung AGOV?",
+    options:["Authentifizierung fuer staatliche Online-Dienste","Amtliches Gesuchs- und Online-Verzeichnis","Allgemeine Government-Odyssee-Verwaltung","Automatisiertes Genehmigungs- und Orakel-Verfahren"],
+    correct:[0],
+    explanation:"AGOV steht fuer Authentifizierung fuer staatliche Online-Dienste, das einheitliche Behoerden-Login der Schweiz von Bund, Kantonen und Gemeinden.",
+    icon:"Vertiefung, AGOV im Detail" },
+  { id:"q9", tier:"depth", type:"single", seconds:40,
+    q:"Wie meldet man sich bei AGOV an, ganz ohne Passwort?",
+    options:["Mit der App AGOV access oder einem physischen FIDO-Sicherheitsschluessel","Mit einem sechsstelligen PIN auf einer Lochkarte","Mit dem Geburtsdatum und dem Lieblingsgott","Ausschliesslich per Fingerabdruck am Gemeindeschalter"],
+    correct:[0],
+    explanation:"AGOV funktioniert passwortlos, entweder ueber die App AGOV access oder einen FIDO-Sicherheitsschluessel als USB-Stick. Sicherer und bequemer als ein Passwort.",
+    icon:"Vertiefung, passwortlos anmelden" },
+  { id:"q10", tier:"depth", type:"multi", seconds:40, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
+    q:"Welche beiden Zustellplattformen sind aktuell fuer rechtskonforme E-Mail-Eingaben anerkannt?",
+    options:["IncaMail","PrivaSphere","OlympMail Express","Das gute alte Fax mit Lesebestaetigung"],
+    correct:[0,1],
+    explanation:"Der Kanton Zuerich nennt ausdruecklich nur IncaMail und PrivaSphere als zulaessige Zustellplattformen, zusaetzlich braucht es eine QES.",
+    icon:"Vertiefung, sichere Zustellung" },
+  { id:"q11", tier:"depth", type:"single", seconds:35,
+    q:"Wer bietet den sicheren Zustelldienst IncaMail an?",
+    options:["Die Schweizerische Post","Der Goetterbote Hermes persoenlich","Die Bundeskanzlei","Eine private Taubenpost-Genossenschaft"],
+    correct:[0],
+    explanation:"IncaMail ist ein Dienst der Schweizerischen Post und vom EJPD als sichere Zustellplattform anerkannt.",
+    icon:"Vertiefung, IncaMail" },
+  { id:"q12", tier:"depth", type:"single", seconds:40,
+    q:"Womit ist eine qualifizierte elektronische Signatur (QES) rechtlich gleichgestellt?",
+    options:["Mit der eigenhaendigen handschriftlichen Unterschrift","Mit einem amtlichen Stempel in dreifacher Ausfuehrung","Mit einem notariell beglaubigten Handschlag","Mit einem Siegel aus echtem Olymp-Wachs"],
+    correct:[0],
+    explanation:"Die QES ist gemaess Artikel 14 Absatz 2bis des Obligationenrechts der eigenhaendigen Unterschrift gleichgestellt, geregelt im Bundesgesetz ueber die elektronische Signatur (ZertES).",
+    icon:"Vertiefung, QES" },
+  { id:"q13", tier:"depth", type:"single", seconds:30,
+    q:"Was kostet das Zuerikonto fuer Einwohnende und Unternehmen?",
+    options:["Nichts, es ist kostenlos","Eine jaehrliche Olymp-Gebuehr von 27 Franken","Einen Obolus pro eingereichtem Gesuch","Nur die Mehrwertsteuer auf digitale Lorbeeren"],
+    correct:[0],
+    explanation:"Das Zuerikonto ist der kostenlose persoenliche Zugang zu den Online-Dienstleistungen des Kantons Zuerich.",
+    icon:"Vertiefung, Zuerikonto" },
+  { id:"q14", tier:"depth", type:"single", seconds:40,
+    q:"Ueber welche Plattform laeuft kuenftig der elektronische Rechtsverkehr in der Schweizer Justiz?",
+    options:["justitia.swiss","olymp.gericht.ch","Die zentrale Fax-Zentrale in Bern","paragraph.ch"],
+    correct:[0],
+    explanation:"justitia.swiss ist die zentrale Justizplattform fuer den elektronischen Rechtsverkehr. Gesetzliche Grundlage ist das BEKJ, dessen restliche Bestimmungen am 1. Juli 2027 in Kraft treten.",
+    icon:"Vertiefung, justitia.swiss" },
+  { id:"q15", tier:"depth", type:"multi", seconds:35, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
+    q:"Wie kann Sie das Zuerikonto ueber Aenderungen an Ihren Vorgaengen benachrichtigen?",
+    options:["Per E-Mail","Per SMS","Per Brieftaube vom Grossmuenster","Per Donnergrollen des Zeus"],
+    correct:[0,1],
+    explanation:"Im Zuerikonto legen Sie selbst fest, ob Sie per SMS oder E-Mail benachrichtigt werden moechten.",
+    icon:"Vertiefung, Benachrichtigung" },
+  { id:"f1", tier:"fun", type:"single", seconds:25,
+    q:"Ihr Gesuch ist in Sekunden bestaetigt. Wie feiern Sie im Projekt-Olymp?",
+    options:["Ein stilles Nicken Richtung Bildschirm, dann der naechste Vorgang","Eine Amphore Most koepfen und die Kolleginnen wecken","Lorbeerkranz aufsetzen und dramatisch aus dem Grossraumbuero schreiten","Zeus per Blitz eine Lesebestaetigung schicken"],
+    correct:[0],
+    explanation:"Ein stilles Nicken. So feiert der wahre Verwaltungsheld.",
+    icon:"Fun, Olymp-Etikette" },
+  { id:"f2", tier:"fun", type:"single", seconds:25,
+    q:"Welches Wesen bewacht laut Legende den Aktenberg der Verwaltung?",
+    options:["Der dreikoepfige Formularberos","Ein Greif mit Ablagekorb","Die Sphinx vom Amt fuer Fristen","Ein sehr mueder Praktikant"],
+    correct:[0],
+    explanation:"Der dreikoepfige Formularberos. Jeder Kopf will ein anderes Beiblatt.",
+    icon:"Fun, Sagenwesen" },
+  { id:"f3", tier:"fun", type:"truefalse", seconds:20,
+    q:"Frage aus der Sagenwelt.",
+    statement:"Aussage: Auf dem Projekt-Olymp gibt es ein eigenes WLAN, aber der Empfang ist goettlich schlecht.",
+    options:["Wahr, so will es das Orakel","Falsch, der Olymp nutzt Glasfaser"],
+    correct:[0],
+    explanation:"Wahr, so will es das Orakel. Selbst Goetter warten manchmal auf den Ladebalken.",
+    icon:"Fun, Olymp-WLAN" }
 ];
-
-/* ================================================================= */
-
-const VERSION = 'Digilex v2.4-single (Build 2026-08-19)';
-const BASE = 1000;
-const STREAK_BONUS = 50;
-const FB_TIMEOUT_MS = 9000;
-
-const isFirebaseConfigured = !firebaseConfig.apiKey.startsWith('PASTE_');
-const HAS_FIREBASE = isFirebaseConfigured && typeof firebase !== 'undefined';
-
-function now() { return Date.now(); }
-function makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
-function safeId() {
-  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
-  return 'p-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36);
+const PODIUM=[
+  { title:"Athena Aktenklar", text:"Hat den Paragrafen-Nebel geteilt und steigt verdient in den Projekt-Olymp auf." },
+  { title:"Hermes Haekchenschnell", text:"War schneller als der Dienstweg erlaubt und traf mit goettlicher Sicherheit." },
+  { title:"Herakles Formularis", text:"Hat den Formularberg mit Wuerde, Wissen und leichtem Schulterzucken erklommen." }
+];
+const HEROES=[
+  { title:"Orakel der Aktenlage", text:"Vielleicht nicht der Olymp, aber Ihre Antworten hatten verdaechtig oft recht." },
+  { title:"Hermes im Halbschritt", text:"Blitzschnell unterwegs, gelegentlich war der Dienstweg noch nicht ganz ausgeschildert." },
+  { title:"Formular-Fluesterer:in", text:"Sie klicken nicht hektisch, Sie verhandeln mit der Antwort, bis sie sich ergibt." },
+  { title:"Paragrafen-Pfadfinder:in", text:"Wird der Weg unklar, suchen Sie nicht die Abkuerzung, sondern die Rechtsgrundlage." },
+  { title:"Dienstweg-Dompteur:in", text:"Sie haben den Dienstweg gezaehmt. Er hat kurz gezuckt, dann nachgegeben." },
+  { title:"Hueter:in des Haekchens", text:"Ein kleines Haekchen entscheidet manchmal ein grosses Verwaltungsabenteuer." },
+  { title:"Bezwinger:in des Aktennebels", text:"Erst Nebel, dann Durchblick. Eine klassische Heldenentwicklung." },
+  { title:"Kanal-Kompass", text:"Sie spuerten, welcher Kanal traegt und welcher Richtung Fax-Museum fuehrt." },
+  { title:"Projekt-Pegasus", text:"Nicht laut, nicht wild, aber zuverlaessig mit Schwung Richtung Ziel." },
+  { title:"Argonaut:in der Umsetzung", text:"Sie halten Kurs und wissen: kein Heldenepos entsteht allein." },
+  { title:"Sphinx der Schnittstelle", text:"Raetselhaft, aber wenn es zaehlt, kommt die richtige Antwort aus dem Nichts." },
+  { title:"Odyssee-Offizier:in", text:"Sie haben die Reise vollstaendig absolviert. Das verdient ein digitales Lorbeerblatt." }
+];
+const EMOJIS=['🦉','⚡','🏛️','📜','⚖️','🔱','🏺','🎭','🌿','🦅','🐎','🏆','☀️','🔥','🗝️','🛡️','👑','🎯','🧭','⭐','🌊','🕊️','🎺','🍇'];
+const BOTN=['Botthena','Hermes 2.0','Herakles GmbH','Orakel-Otto','Zeus.exe','Pallas Prozess','Apollo Akten','Nike Notiz','Ares Antrag','Demeter Digital','Hera Hotline','Poseidon PDF','Kronos Konto','Iris Inbox','Hades Helpdesk','Athena Ausweis','Hermes Haekchen','Gaia Gesuch','Helios Login','Momos Meldung'];
+const BOTKEYS={b:5,x:10,q:15,t:20};
+const SHAPES=['▲','◆','●','■'];
+const QUIPS={
+  fast:[
+    '{n} in {t}s. Entscheidungslatenz reduziert, Urteil erhalten.',
+    '{n} war schneller, als der Dienstweg erlaubt. {t}s.',
+    'Erst durch die Schranke: {n}. Jahreskarte Richtung Erledigt.',
+    '{n} nahm die Expresslinie. Keine Phasengates, {t}s.',
+    'Signal gruen, Hirn gruener. {n} in {t}s.',
+    'Ticket entwertet in {t}s. {n} hatte den Vorgang vorbereitet.',
+    'Das Orakel notiert: {n} zog die Antwort direkt aus der Ablage Bereit. {t}s.'],
+  streak:[
+    '{n} auf einer {k}er-Serie. Angeblich nachhaltiges Tempo.',
+    '{k} in Folge. Jemand pruefe {n} auf ein WIP-Limit.',
+    'Unaufhaltsam, {n}. Die Retro wird kurz. {k} am Stueck.',
+    '{k} in Folge fuer {n}. Fist of five vom ganzen Abteil.',
+    '{n} macht es {k}. Die Definition of Done wird stetig erfuellt.',
+    'Die {n}-Expresslinie haelt nicht. {k} und weiter.'],
+  overtake:[
+    '{n} zieht innen an {o} vorbei. Vorsicht mit der Luecke, {o}.',
+    '{n} klettert {k} Plaetze. Nennen wir es eine Planungsanpassung.',
+    'Signalwechsel! {n} wurde an die Spitze des Backlogs priorisiert.',
+    '{n} ueberholt {o}: kuerzester Vorgang zuerst.',
+    'Rebalancing: {n} nimmt {o} Arbeit und Punkte ab.',
+    'Ueberholmanoever! {n} um {k} hoch. {o}, vielleicht ein Spike.'],
+  allRight:[
+    'Volle Punktzahl im ganzen Abteil. Eine ausgerichtete Truppe.',
+    'Alle richtig. Die Projektleitung weint vor Freude.',
+    'Ein sauberer Durchmarsch. So klingt Kadenz.',
+    'Alle korrekt. Jemand hat heimlich das Merkblatt gelesen.'],
+  allWrong:[
+    'Niemand? Gut. Problemloesungs-Workshop bei der naechsten Retrospektive.',
+    'Ein sauberer Fehlgriff im Kollektiv. Ab in die Spalte Analyse.',
+    'Nicht ein richtiges Ticket. Risikostatus: von allen akzeptiert.',
+    'Einstimmig daneben. Schoene Ausrichtung, falsches Ziel.'],
+  generic:[
+    'Das Orakel hat schon vieles gesehen. Meist unfertige Vorgaenge.',
+    'Naechste Etappe naht. Annahmen bitte im Abteil behalten.',
+    'Das Orakel notiert: schnell antworten ist nicht dasselbe wie richtig.',
+    'Irgendwo hat sich gerade ein Portfolio neu ausbalanciert.'],
+  photo:[
+    'Fotofinish an der Spitze: {a} und {b} trennen nur {d} Punkte.',
+    'Der Abstand vorne betraegt {d} Punkte. Vorsicht, {b}.',
+    'Die ersten beiden nur {d} Punkte auseinander. Die Kameras laufen.'],
+  lastGasp:[
+    '{n} entwertete das Ticket mit {t}s Rest. Ausgabe auf letzte Nachfrage.',
+    'Tueren schliessen, und {n} rutscht mit {t}s hinein.',
+    '{t}s auf der Uhr und {n} war noch am Perron. Respekt.'],
+  lastStop:[
+    'Doppelte Punkte kassiert! {n} verbucht +{p} an der letzten Etappe.',
+    'Letzte Etappe, doppelter Fahrpreis. {n} sammelt satte +{p}.',
+    'Der Doppelhalt liefert. {n} steckt +{p} ein.']
+};
+const V_RIGHT=['Ticket akzeptiert. Hypothese bestaetigt.','Richtig, weiter so.','Auf den Schienen geblieben.','Gruenes Signal, weiterfahren.','Ziel erreicht, Punkte verbucht.','Geradewegs durch die Validierung.'];
+const V_PARTIAL=['Teilweise richtig, ein Haekchen fehlt.','Halb im Ziel. Ein Teil sass.','Ein Teil der Antwort war korrekt.'];
+const V_WRONG=['Hypothese nicht bestaetigt. Neu ansetzen.','Vielleicht das naechste Mal ein Spike.','Zurueck in die Spalte Analyse.','Nicht durch die Leitplanken gedeckt.','Eine mutige Hypothese. Widerlegt.'];
+const V_NONE=['Kein Ticket entwertet. Die Reise wartet auf niemanden.','Keine Antwort erfasst. Ein akzeptiertes Risiko.','Die Tueren schlossen vor Ihrem Ticket.','Schweigen ist kein zugelassener Antworttyp.'];
+const F_PLACE=['MVP: wertvollste:r Passagier:in. Hypothese bestaetigt.','So nah am Gold. Eine sehr starke Hypothese.','Bronze, ein solider Unterbau.','Jede Reise braucht jedes Abteil. Gut gefahren.'];
+const ANNOUNCE=[
+  'Der 09:15 nach Business Agility faehrt planmaessig.',
+  'Bitte halten Sie Ihr WIP jederzeit innerhalb der Limits.',
+  'Achten Sie auf die Luecke zwischen zugesagt und offen.',
+  'Fundbuero: ein unfinanziertes Projekt, zuletzt beim Kostenstellen-Gleis gesehen.',
+  'Diese Station fuehrt eine strenge Definition of Done.',
+  'Bitte melden Sie unbeaufsichtigte Abhaengigkeiten dem Personal.',
+  'Zuege Richtung Erledigt fahren oefter, wenn die Batches klein sind.',
+  'Fuer Ihre Sicherheit bitte alle persoenlichen Risiken vor der Abfahrt einordnen.'
+];
+const INSIGHTS=[
+  'AGOV steht fuer Authentifizierung fuer staatliche Online-Dienste.',
+  'AGOV funktioniert passwortlos, per App AGOV access oder FIDO-Sicherheitsschluessel.',
+  'Das Zuerikonto ist kostenlos und nutzt AGOV als Login.',
+  'Nur IncaMail und PrivaSphere sind als sichere Zustellplattformen anerkannt.',
+  'Die QES ist der eigenhaendigen Unterschrift rechtlich gleichgestellt (Art. 14 Abs. 2bis OR).',
+  'IncaMail ist ein Dienst der Schweizerischen Post, anerkannt vom EJPD.',
+  'justitia.swiss ist die zentrale Plattform fuer den elektronischen Rechtsverkehr.',
+  'Das BEKJ tritt in seinen restlichen Teilen am 1. Juli 2027 in Kraft.',
+  'Das Zuerikonto benachrichtigt wahlweise per SMS oder E-Mail.',
+  'Ungeschuetzte E-Mail ist ab 2027 fuer Behoerdenkommunikation nicht zulaessig.'
+];
+/* ---------------- tiny utils ---------------- */
+const $=s=>document.querySelector(s);
+function el(tag,cls,txt){const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t;} return a;}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function vib(p){try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){}}
+function vibOK(){vib([40,60,40]);}
+/* ---------------- error log + toast ---------------- */
+const ERR=[];
+function logErr(ctx,e){
+  const m=(e&&(e.message||e.code))||String(e);
+  const gx=(typeof S!=='undefined'&&S.game)?(' ('+(S.game.phase||'-')+':'+(S.game.qIndex==null?'-':S.game.qIndex)+')'):'';
+  ERR.push(new Date().toISOString().slice(11,19)+' ['+ctx+'] '+m+gx);
+  if(ERR.length>60)ERR.shift();
+  try{console.error('[Digilex]',ctx,e);}catch(x){}
+  updateVtag(); renderDebug();
 }
-function joinUrl(code) { return location.origin + location.pathname + '?join=' + code; }
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function avg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 999999; }
-function sortedArray(obj) { return Object.entries(obj || {}).map(([id, v]) => ({ id, ...v })); }
-function qsel(id) { return document.getElementById(id); }
-function el(tag, cls, text) {
-  const n = document.createElement(tag);
-  if (cls) n.className = cls;
-  if (text !== undefined && text !== null) n.textContent = text;
-  return n;
+function updateVtag(){
+  const v=document.getElementById('vtag'); if(!v)return;
+  v.textContent='Digilex '+APP_VERSION+(ERR.length?(' !'+ERR.length):'');
+  v.classList.toggle('err',ERR.length>0);
 }
-
-/* ---------- Sichtbare Fehler statt stiller Ausfälle ---------- */
-let errTimer = null;
-function showError(msg) {
-  const b = qsel('err-banner');
-  b.textContent = msg;
-  b.classList.add('show');
-  if (errTimer) clearTimeout(errTimer);
-  errTimer = setTimeout(() => b.classList.remove('show'), 7000);
-  console.error('[Digilex]', msg);
+function stWarn(e){if(S.stWarn)return; S.stWarn=true;
+  logErr('E26 storage','Browser-Speicher blockiert: '+((e&&e.message)||e));}
+function pushTrace(key){
+  S.trace.push(new Date().toISOString().slice(11,19)+'  '+key);
+  if(S.trace.length>12)S.trace.shift();
 }
-function withTimeout(promise, label) {
-  return Promise.race([
-    promise,
-    new Promise((resolve, reject) => setTimeout(() => reject(new Error(label + ': keine Antwort nach ' + (FB_TIMEOUT_MS / 1000) + ' Sekunden')), FB_TIMEOUT_MS))
-  ]);
+let toastT=null;
+function toast(msg){const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),5200);}
+window.addEventListener('error',ev=>{
+  const where=ev.filename?(' @ '+String(ev.filename).split('/').pop()+':'+ev.lineno):'';
+  logErr('E19 window',((ev.error&&ev.error.message)||ev.message||'error')+where);
+});
+window.addEventListener('unhandledrejection',ev=>logErr('E20 promise',ev.reason));
+function withTimeout(p){return new Promise((res,rej)=>{
+  const to=setTimeout(()=>rej(new Error('Timeout nach '+(CALL_TIMEOUT/1000)+'s')),CALL_TIMEOUT);
+  Promise.resolve(p).then(v=>{clearTimeout(to);res(v);},e=>{clearTimeout(to);rej(e);});});}
+async function fb(label,p){
+  try{return await withTimeout(p);}
+  catch(e){toast('Fehler '+label+': '+(e.code||e.message||e)); logErr(label,e); throw e;}
 }
-function busyWrap(btn, fn) {
-  return async function (ev) {
-    if (btn.classList.contains('busy')) return;
-    btn.classList.add('busy');
-    try { await fn(ev); }
-    catch (e) { showError(e && e.message ? e.message : String(e)); }
-    finally { btn.classList.remove('busy'); }
-  };
+async function busy(btn,fn){
+  if(!btn||btn.disabled)return;
+  btn.disabled=true; btn.classList.add('busy');
+  try{await fn();}catch(e){}
+  finally{btn.disabled=false; btn.classList.remove('busy');}
 }
-
-/* ---------- Datenschicht: Firebase (Live-Betrieb) ---------- */
-let api = null;
-if (window.__TEST_API) {
-  /* Testumgebung: die automatischen Tests injizieren hier eine In-Memory-Datenbank */
-  api = window.__TEST_API;
-  qsel('conn-dot').className = 'ok';
-  qsel('conn-label').textContent = 'Test';
-} else if (HAS_FIREBASE) {
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  api = {
-    read: async (p) => (await withTimeout(db.ref(p).once('value'), 'Firebase lesen')).val(),
-    write: (p, v) => withTimeout(db.ref(p).set(v), 'Firebase schreiben'),
-    patch: (p, v) => withTimeout(db.ref(p).update(v), 'Firebase schreiben'),
-    del: (p) => withTimeout(db.ref(p).remove(), 'Firebase löschen'),
-    subscribe: (p, cb) => {
-      const r = db.ref(p);
-      const h = r.on('value', (snap) => cb(snap.val()), (err) => showError('Firebase Verbindung: ' + err.message));
-      return () => r.off('value', h);
-    }
-  };
-  db.ref('.info/connected').on('value', (snap) => {
-    const ok = snap.val() === true;
-    qsel('conn-dot').className = ok ? 'ok' : 'bad';
-    qsel('conn-label').textContent = ok ? 'Live' : 'Offline';
+/* ---------------- pool validation ---------------- */
+function validatePools(){
+  let bad=0;
+  const seen=new Set();
+  if(!Array.isArray(QUESTIONS)||QUESTIONS.length<15){logErr('E18 pools','Fragenpool zu klein'); bad++;}
+  QUESTIONS.forEach((x,i)=>{
+    const tag='Frage '+i+' ('+(x&&x.id||'?')+')';
+    if(!x||typeof x.q!=='string'){logErr('E18 pools',tag+' fehlerhaft'); bad++; return;}
+    if(x.id==null||seen.has(x.id)){logErr('E18 pools',tag+' id fehlt oder doppelt'); bad++;}
+    seen.add(x.id);
+    if(!Array.isArray(x.options)||x.options.length<2||x.options.length>4){logErr('E18 pools',tag+' Optionenzahl'); bad++;}
+    if(!Array.isArray(x.correct)||x.correct.length===0){logErr('E18 pools',tag+' correct leer'); bad++;}
+    (x.correct||[]).forEach(c=>{if(!Number.isInteger(c)||c<0||c>=(x.options||[]).length){logErr('E18 pools',tag+' correct-Index'); bad++;}});
+    if(!(x.seconds>=5&&x.seconds<=300)){logErr('E18 pools',tag+' seconds'); bad++;}
+    if(['single','multi','truefalse'].indexOf(x.type)<0){logErr('E18 pools',tag+' type'); bad++;}
   });
-} else {
-  /* Keine Konfiguration oder SDK nicht geladen: die App bleibt komplett
-     anschaubar, nur Aktionen, die Firebase brauchen, melden sich sichtbar. */
-  const actionMsg = isFirebaseConfigured
-    ? 'Firebase SDK nicht geladen. Internetverbindung prüfen und die Seite neu laden.'
-    : 'Firebase ist noch nicht konfiguriert. Den Block FIREBASE-KONFIGURATION in der index.html ausfüllen.';
-  const noticeMsg = isFirebaseConfigured
-    ? 'Firebase SDK nicht geladen: Internetverbindung prüfen und die Seite neu laden.'
-    : 'Firebase ist noch nicht konfiguriert: Anschauen und Durchklicken geht, Sessions erstellen oder beitreten noch nicht. Die Anleitung steht im Block FIREBASE-KONFIGURATION in dieser Datei.';
-  const nope = async () => { throw new Error(actionMsg); };
-  api = { __stub: true, __notice: noticeMsg, read: nope, write: nope, patch: nope, del: nope, subscribe: (p, cb) => { cb(null); return () => {}; } };
-  qsel('conn-dot').className = 'bad';
-  qsel('conn-label').textContent = isFirebaseConfigured ? 'Offline' : 'Nicht konfiguriert';
+  const nCore=QUESTIONS.filter(q=>q.tier==='core').length;
+  const nDepth=QUESTIONS.filter(q=>q.tier==='depth').length;
+  const nFun=QUESTIONS.filter(q=>q.tier==='fun').length;
+  if(bad===0)console.info('[Digilex] Pool OK: '+QUESTIONS.length+' Fragen ('+nCore+' core, '+nDepth+' depth, '+nFun+' fun).');
+  else toast('Fehler E18: Fragenpool-Pruefung fehlgeschlagen ('+bad+'). Version-Tag antippen.');
 }
-
-/* ---------- Validierung der Fragen beim Laden ---------- */
-function validateQuiz() {
-  const issues = [];
-  const seen = new Set();
-  if (!Array.isArray(QUIZ.questions) || QUIZ.questions.length === 0) issues.push('QUIZ.questions ist leer.');
-  (QUIZ.questions || []).forEach((q, i) => {
-    const tag = 'Frage ' + (i + 1) + ' (' + (q.id || 'ohne id') + ')';
-    if (!q.id || seen.has(q.id)) issues.push(tag + ': id fehlt oder doppelt.');
-    seen.add(q.id);
-    if (!Array.isArray(q.options) || q.options.length < 2) issues.push(tag + ': weniger als 2 Optionen.');
-    if (!Array.isArray(q.correct) || q.correct.length === 0) issues.push(tag + ': correct ist leer.');
-    (q.correct || []).forEach((c) => {
-      if (!Number.isInteger(c) || c < 0 || c >= (q.options || []).length) issues.push(tag + ': correct-Index ' + c + ' ausserhalb der Optionen.');
+/* ---------------- audio (Web Audio synth) ---------------- */
+let AC=null, MASTER=null, MUTED=false;
+function setMute(m){
+  MUTED=!!m;
+  try{if(MASTER)MASTER.gain.value=MUTED?0:1;}catch(e){}
+  const b=document.getElementById('muteBtn'); if(b)b.textContent=MUTED?'🔇':'🔊';
+  try{sessionStorage.setItem('dl_mute',MUTED?'1':'0');}catch(e){}
+}
+function ensureAudio(){try{
+  if(!AC){
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    MASTER=AC.createGain(); MASTER.gain.value=MUTED?0:1; MASTER.connect(AC.destination);
+  }
+  if(AC.state==='suspended')AC.resume();
+}catch(e){if(!S.acWarn){S.acWarn=true; logErr('E27 audio',e);}}}
+function tone(f,dur,type,vol,when,slide){try{
+  if(!AC)return; if(AC.state!=='running'){try{AC.resume();}catch(x){}}
+  const t0=AC.currentTime+(when||0);
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,t0);
+  if(slide)o.frequency.exponentialRampToValueAtTime(slide,t0+dur);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(vol||0.12,t0+0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(MASTER||AC.destination); o.start(t0); o.stop(t0+dur+0.05);
+}catch(e){}}
+function nz(dur,vol,when,fc){try{
+  if(!AC)return; if(AC.state!=='running'){try{AC.resume();}catch(x){}}
+  const t0=AC.currentTime+(when||0);
+  const len=Math.max(1,Math.floor(AC.sampleRate*dur));
+  const b=AC.createBuffer(1,len,AC.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const s=AC.createBufferSource(); s.buffer=b;
+  const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.value=fc||1200;
+  const g=AC.createGain(); g.gain.setValueAtTime(vol||0.1,t0);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  s.connect(f); f.connect(g); g.connect(MASTER||AC.destination); s.start(t0); s.stop(t0+dur);
+}catch(e){}}
+const SFX={
+  tick(){tone(880,0.07,'square',0.08);},
+  go(){tone(300,0.28,'sawtooth',0.1,0,900); nz(0.25,0.08,0,900);},
+  whistle(){tone(830,0.5,'triangle',0.12); tone(1245,0.5,'triangle',0.1); tone(830,0.4,'triangle',0.1,0.65); tone(1245,0.4,'triangle',0.08,0.65);},
+  ding(){tone(987,0.12,'sine',0.09); tone(1318,0.22,'sine',0.09,0.1);},
+  click(){tone(1250,0.04,'square',0.06);},
+  right(){[523,659,784,1047].forEach((f,i)=>tone(f,0.16,'sine',0.11,i*0.07)); vibOK();},
+  partial(){[523,659].forEach((f,i)=>tone(f,0.14,'sine',0.1,i*0.08)); vib([30,40]);},
+  wrong(){tone(220,0.3,'sawtooth',0.1,0,170);},
+  swish(){nz(0.16,0.09,0,700);},
+  chug(k){for(let i=0;i<Math.min(k,4);i++)nz(0.08,0.07,i*0.1,300);},
+  drum(){for(let i=0;i<16;i++)nz(0.05,0.07,i*(0.16-i*0.006),500);},
+  fanfare(){[523,659,784].forEach(f=>tone(f,0.9,'triangle',0.09,0)); tone(1047,0.9,'triangle',0.1,0.15); [523,659,784,1047].forEach(f=>tone(f,1.1,'sine',0.06,0.5));},
+  pop(){nz(0.12,0.1,0,2200);},
+  party(){[659,784,988,1319].forEach((f,i)=>tone(f,0.18,'triangle',0.09,i*0.07)); tone(1568,0.4,'sine',0.07,0.32); nz(0.14,0.08,0.15,2000);},
+  klaxon(){tone(415,0.5,'sawtooth',0.11); tone(311,0.5,'sawtooth',0.11); tone(415,0.4,'sawtooth',0.09,0.62); tone(311,0.4,'sawtooth',0.09,0.62);},
+  tock(){tone(700,0.05,'square',0.07);},
+  punch(){tone(1250,0.04,'square',0.06); nz(0.07,0.07,0.02,900); tone(523,0.09,'triangle',0.08,0.05);},
+  milestone(){this.chug(4); tone(659,0.12,'triangle',0.09,0.4); tone(784,0.12,'triangle',0.09,0.48); tone(1047,0.3,'triangle',0.1,0.58); vibOK();},
+  results(good,total){
+    if(total>0&&good>=total){this.fanfare(); nz(0.25,0.07,0.25,2400);}
+    else if(good>0){[392,523,659,784].forEach((f,i)=>tone(f,0.15,'triangle',0.1,i*0.06)); tone(1047,0.4,'triangle',0.1,0.26);}
+    else{tone(196,0.5,'sawtooth',0.09,0,140); nz(0.3,0.06,0.05,300);}
+  }
+};
+/* ---------------- state ---------------- */
+const S={role:null,code:null,pid:null,name:'',emoji:'🦉',game:null,off:0,offKnown:false,everConn:false,
+  screen:'',phaseKey:'',revealed:{},revealRetry:{},botTimers:[],builtQ:-1,builtQP:-1,goPlayed:{},
+  localSel:[],localSubmitted:false,optBtns:[],earlyT:{},qrDone:false,lastQuip:{},raf:0,trace:[],
+  lastSnapAt:0,lastHot:0,hbT:0,lenN:10,bestMs:null,stWarn:false,acWarn:false,ckWarn:false,
+  deckChecked:false,lastRenderErr:''};
+let db=null;
+const TS=()=>firebase.database.ServerValue.TIMESTAMP;
+function now(){return Date.now()+S.off;}
+function gref(){return db.ref(ROOT+'/'+S.code);}
+/* ---------------- boot / firebase ---------------- */
+function showSetup(msg){const b=$('#setupBanner'); b.textContent='SETUP NOETIG: '+msg; b.style.display='block'; logErr('E03 setup',msg);}
+function setConn(ok){S.everConn=S.everConn||ok;
+  $('#conn').className='dot'+(ok?' on':''); $('#connt').textContent=ok?'live':'offline';}
+function initFB(){
+  try{
+    if(typeof firebase==='undefined'){showSetup('Firebase SDK nicht geladen. Internetverbindung pruefen und Seite neu laden.'); return false;}
+    if(!firebaseConfig.databaseURL){showSetup('firebaseConfig.databaseURL fehlt.'); return false;}
+    firebase.initializeApp(firebaseConfig);
+    db=firebase.database();
+    db.ref('.info/serverTimeOffset').on('value',s=>{S.off=s.val()||0; S.offKnown=true;});
+    db.ref('.info/connected').on('value',s=>setConn(!!s.val()));
+    setTimeout(()=>{if(!S.everConn){
+      toast('Fehler E02: keine Firebase-Verbindung nach 9s. databaseURL und Regeln pruefen.');
+      logErr('E02 connect','keine Verbindung innert 9s');}},CALL_TIMEOUT);
+    return true;
+  }catch(e){logErr('E01 init',e); showSetup('Firebase Start fehlgeschlagen: '+(e.message||e)); return false;}
+}
+/* ---------------- navigation ---------------- */
+function go(id){
+  if(S.screen===id)return;
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));
+  const t=document.getElementById(id); if(t)t.classList.add('on');
+  S.screen=id;
+  if(id==='s-landing'||id==='s-howto'||id==='s-setup'||id==='s-hostlogin'||(id==='s-lobby'&&S.role==='host'))startBg();
+  else stopBg();
+  clearInterval(annT);
+  if(id==='s-wait')startAnnounce();
+  clearInterval(insT);
+  if(id==='s-landing')startTicker('#insTick');
+  else if(id==='s-lobby'&&S.role==='host')startTicker('#lobTick');
+}
+let annT=0, annIx=0;
+function startAnnounce(){
+  const e=$('#waitAnn'); if(!e)return;
+  annIx=Math.floor(Math.random()*ANNOUNCE.length);
+  e.textContent=ANNOUNCE[annIx];
+  if(RM)return;
+  annT=setInterval(()=>{
+    if(S.screen!=='s-wait'){clearInterval(annT); return;}
+    annIx=(annIx+1)%ANNOUNCE.length;
+    e.style.opacity='0';
+    setTimeout(()=>{e.textContent=ANNOUNCE[annIx]; e.style.opacity='';},350);
+  },4200);
+}
+let insT=0, insIx=0;
+function startTicker(sel){
+  const e=document.querySelector(sel); if(!e)return;
+  insIx=Math.floor(Math.random()*INSIGHTS.length);
+  e.textContent=INSIGHTS[insIx];
+  if(RM)return;
+  insT=setInterval(()=>{
+    const scr=e.closest('.screen');
+    if(scr&&!scr.classList.contains('on')){clearInterval(insT); return;}
+    insIx=(insIx+1)%INSIGHTS.length;
+    e.style.opacity='0';
+    setTimeout(()=>{e.textContent=INSIGHTS[insIx]; e.style.opacity='';},350);
+  },5200);
+}
+function saveSess(){try{sessionStorage.setItem('dl_sess',JSON.stringify(
+  {role:S.role,code:S.code,pid:S.pid,name:S.name,emoji:S.emoji}));}catch(e){stWarn(e);}}
+function leave(){
+  try{if(S.code)gref().off();}catch(e){}
+  try{sessionStorage.removeItem('dl_sess');}catch(e){}
+  location.href=location.origin+location.pathname;
+}
+/* ---------------- deck helpers ---------------- */
+function makeDeck(n){
+  const idxByTier=t=>QUESTIONS.map((q,i)=>({q,i})).filter(o=>o.q.tier===t).map(o=>o.i);
+  const core=idxByTier('core'), depth=idxByTier('depth'), fun=idxByTier('fun');
+  const funCap=n<=5?1:(n<=10?2:3);
+  const funPicked=[];
+  const funS=shuffle(fun.slice());
+  for(let k=0;k<funCap&&k<funS.length;k++){ if(Math.random()<0.55)funPicked.push(funS[k]); }
+  let remaining=n-funPicked.length;
+  const pick=[];
+  for(const idx of shuffle(core.slice())){ if(remaining<=0)break; pick.push(idx); remaining--; }
+  for(const idx of shuffle(depth.slice())){ if(remaining<=0)break; pick.push(idx); remaining--; }
+  for(const idx of shuffle(fun.slice())){ if(remaining<=0)break; if(funPicked.indexOf(idx)<0){pick.push(idx); remaining--;} }
+  const all=shuffle(pick.concat(funPicked));
+  return all.map(p=>{
+    const src=QUESTIONS[p];
+    const perm=(src.type==='truefalse')?[0,1]:shuffle(Array.from(src.options.keys()));
+    return {p,o:perm};
+  });
+}
+function deckQ(g,i){
+  const entry=g.deck[i], src=QUESTIONS[entry.p];
+  return {
+    id:src.id, type:src.type, text:src.q, time:src.seconds,
+    hint:src.hint||'', statement:src.statement||'', explanation:src.explanation||'', icon:src.icon||'',
+    opts:entry.o.map(oi=>src.options[oi]),
+    correctDisplay:src.correct.map(ci=>entry.o.indexOf(ci))
+  };
+}
+function checkDeck(g){
+  if(S.deckChecked||!g.deck)return;
+  S.deckChecked=true;
+  try{
+    let bad=0;
+    g.deck.forEach((d,ix)=>{
+      const okP=Number.isInteger(d.p)&&d.p>=0&&d.p<QUESTIONS.length;
+      const optN=okP?QUESTIONS[d.p].options.length:0;
+      const okO=okP&&Array.isArray(d.o)&&d.o.length===optN&&
+        d.o.slice().sort((a,b)=>a-b).every((v,k)=>v===k);
+      if(!okP||!okO){bad++; logErr('E24 deck','Eintrag '+ix+' ungueltig');}
     });
-    if (typeof q.seconds !== 'number' || q.seconds < 5 || q.seconds > 300) issues.push(tag + ': seconds unplausibel (' + q.seconds + ').');
-  });
-  if (issues.length) {
-    issues.forEach((m) => console.error('[Fragen-Validierung]', m));
-    showError('Fragen-Validierung fehlgeschlagen: ' + issues.length + ' Problem(e). Details in der Konsole (F12).');
+    if(bad)toast('Fehler E24: Deck-Integritaet fehlgeschlagen. Host sollte neu starten.');
+  }catch(e){logErr('E24 deck',e);}
+}
+function playersArr(g){
+  const P=g.players||{}; const a=[];
+  for(const id in P)a.push(Object.assign({id},P[id]));
+  a.sort((x,y)=>(y.score||0)-(x.score||0)||(x.joinedAt||0)-(y.joinedAt||0)||(x.id<y.id?-1:1));
+  return a;
+}
+/* ---------------- scoring ---------------- */
+function scoreRaw(dq,sel,elapsedMs){
+  const correctSet=new Set(dq.correctDisplay);
+  const hasWrong=sel.some(x=>!correctSet.has(x));
+  const correctSel=sel.filter(x=>correctSet.has(x)).length;
+  const full=(correctSel===dq.correctDisplay.length && sel.length===dq.correctDisplay.length && !hasWrong);
+  let points=0, partial=false;
+  if(full){
+    const frac=clamp(elapsedMs/(dq.time*1000),0,1);
+    points=Math.round((1000*(1-frac*0.5))/10)*10;
+  }else if(dq.type==='multi'&&correctSel>0&&!hasWrong){
+    points=Math.round((1000/dq.correctDisplay.length)*correctSel*0.75/10)*10;
+    partial=true;
   }
-  return issues;
+  return {full,partial,points};
 }
-
-/* ---------- Punktelogik (identisch zur React-Version) ---------- */
-function scoreAnswer(q, selected, elapsedMs) {
-  const correctSet = new Set(q.correct);
-  const hasWrong = selected.some((x) => !correctSet.has(x));
-  const correctSelected = selected.filter((x) => correctSet.has(x)).length;
-  const full = correctSelected === q.correct.length && selected.length === q.correct.length;
-  let points = 0;
-  if (full) {
-    const ratio = clamp(elapsedMs / (q.seconds * 1000), 0, 1);
-    points = Math.round(BASE * (1 - ratio * 0.45));
-  } else if (q.type === 'multi' && correctSelected > 0 && !hasWrong) {
-    points = Math.round((BASE / q.correct.length) * correctSelected * 0.75);
-  }
-  return { full, partial: !full && points > 0, points };
-}
-
-/* Antwort verbuchen: von echten Teilnehmenden, Bots und Tests genutzt.
-   Blockt Doppel-Antworten auf dieselbe Frage. */
-async function applyAnswer(code, sess, pid, q, selected, elapsedMs) {
-  if (!sess || !q) return false;
-  if (sess.answers && sess.answers[q.id] && sess.answers[q.id][pid]) return false;
-  const player = (sess.players || {})[pid];
-  if (!player) return false;
-  const res = scoreAnswer(q, selected, elapsedMs);
-  const newStreak = res.full ? (player.streak || 0) + 1 : 0;
-  const bonus = res.full && newStreak >= 2 ? STREAK_BONUS : 0;
-  await api.write('sessions/' + code + '/answers/' + q.id + '/' + pid, { selected, elapsedMs, full: res.full, partial: res.partial, points: res.points, bonus });
-  await api.patch('sessions/' + code + '/players/' + pid, {
-    score: (player.score || 0) + res.points + bonus,
-    streak: newStreak,
-    maxStreak: Math.max(player.maxStreak || 0, newStreak),
-    fullCorrect: (player.fullCorrect || 0) + (res.full ? 1 : 0),
-    partialCorrect: (player.partialCorrect || 0) + (res.partial ? 1 : 0),
-    wrong: (player.wrong || 0) + (!res.full && !res.partial ? 1 : 0),
-    times: [...(player.times || []), elapsedMs]
-  });
-  return true;
-}
-
-/* ---------- Endauswertung (identisch zur React-Version) ---------- */
-function finalRows(session) {
-  const rows = sortedArray(session.players).map((p) => ({ ...p, avgTime: avg(p.times || []) / 1000 }));
-  rows.sort((a, b) => b.score - a.score || a.avgTime - b.avgTime);
-  return rows.map((r, i) => ({
-    ...r,
-    rank: i + 1,
-    finalTitle: i < 3 ? QUIZ.podium[i].title : assignProfile(r, rows).title,
-    profile: i < 3 ? null : assignProfile(r, rows)
-  }));
-}
-function assignProfile(p, rows) {
-  const qs = QUIZ.questions;
-  const fullRate = (p.fullCorrect || 0) / qs.length;
-  const avgMs = avg(p.times || []);
-  const medAvg = avg(rows.map((r) => avg(r.times || [])).filter(Boolean));
-  if (fullRate >= 0.7) return heroProfiles[0];
-  if (avgMs < medAvg * 0.75 && (p.wrong || 0) > 0) return heroProfiles[1];
-  if (avgMs > medAvg * 1.2 && fullRate >= 0.5) return heroProfiles[2];
-  if ((p.maxStreak || 0) >= 3) return heroProfiles[4];
-  if ((p.partialCorrect || 0) >= 1) return heroProfiles[5];
-  if ((p.fullCorrect || 0) >= 2) return heroProfiles[7];
-  if ((p.times || []).length >= qs.length) return heroProfiles[11];
-  if (avgMs < medAvg * 0.9) return heroProfiles[12];
-  if (fullRate >= 0.55) return heroProfiles[13];
-  if ((p.score || 0) < 1800) return heroProfiles[14];
-  return heroProfiles[9];
-}
-function buildCsv(session) {
-  const rows = finalRows(session).map((r) => ({
-    Name: r.name, Avatar: r.avatar, Punkte: r.score,
-    'VollständigRichtig': r.fullCorrect || 0, 'TeilweiseRichtig': r.partialCorrect || 0, 'Falsch': r.wrong || 0,
-    DurchschnittszeitSek: r.avgTime.toFixed(2), MaxSerie: r.maxStreak || 0, Titel: r.finalTitle
-  }));
-  const head = Object.keys(rows[0] || { Name: '', Punkte: '' }).join(';');
-  const body = rows.map((r) => Object.values(r).map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(';'));
-  return '\ufeff' + [head, ...body].join('\n');
-}
-
-/* ---------- Avatare (30 Stueck, generativ, wie im Original) ---------- */
-const AVATAR_COLORS = ['#e7bc61', '#61dafb', '#9ad7c8', '#b9a7ff', '#d6d6d6', '#f6c3a5'];
-function avatarSvgString(i, size) {
-  const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
-  const brow = i % 3 === 0 ? 'M22 18c6-8 14-8 20 0' : i % 3 === 1 ? 'M18 32c4-3 8-4 14-4s10 1 14 4' : 'M24 16l8-7 8 7';
-  return '<svg viewBox="0 0 64 64" width="' + size + '" height="' + size + '" aria-hidden="true">' +
-    '<defs><linearGradient id="g' + i + '" x1="0" x2="1"><stop stop-color="' + c + '"/><stop offset="1" stop-color="#ffffff" stop-opacity=".85"/></linearGradient></defs>' +
-    '<circle cx="32" cy="30" r="27" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.3)"/>' +
-    '<path d="M20 49c2-11 22-11 24 0" fill="url(#g' + i + ')" opacity=".9"/>' +
-    '<circle cx="32" cy="25" r="10" fill="url(#g' + i + ')"/>' +
-    '<path d="' + brow + '" fill="none" stroke="#e7bc61" stroke-width="3" stroke-linecap="round"/>' +
-    '<path d="M16 53h32" stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-linecap="round"/></svg>';
-}
-function avatarNode(i, size) {
-  const wrap = el('span');
-  wrap.innerHTML = avatarSvgString(i, size); /* nur eigener, statischer SVG-String, keine Nutzereingaben */
-  return wrap.firstChild;
-}
-
-/* ---------- Globaler Zustand des Clients ---------- */
-let mode = 'home';
-let sessionCode = '';
-let session = null;
-let unsubscribe = null;
-let playerId = localStorage.getItem('digilex-player-id') || safeId();
-localStorage.setItem('digilex-player-id', playerId);
-
-let joinAvatar = null;
-let localSelected = [];
-let localSubmitted = false;
-let lastQid = null;
-let shownAt = 0;
-let hostTick = null;
-let lastHostQid = null;
-const botPlanned = new Set();
-let qrRendered = '';
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
-  qsel(id).classList.add('active');
-}
-function currentQuestion(s) { return QUIZ.questions[(s && s.current) || 0]; }
-
-function subscribeSession(code) {
-  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-  sessionCode = code;
-  unsubscribe = api.subscribe('sessions/' + code, (snap) => {
-    session = snap;
-    onSession();
-  });
-}
-
-function goHome() {
-  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-  if (hostTick) { clearInterval(hostTick); hostTick = null; }
-  session = null; sessionCode = ''; mode = 'home';
-  try { history.replaceState(null, '', location.pathname); } catch (e) {}
-  showScreen('scr-home');
-}
-
-function onSession() {
-  if ((mode === 'host' || mode === 'player') && !session) {
-    showError('Die Session wurde beendet oder zurückgesetzt.');
-    goHome();
+/* ---------------- host: create / lobby / bots ---------------- */
+const CODEA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function genCode(){let c=''; for(let i=0;i<4;i++)c+=CODEA[Math.floor(Math.random()*CODEA.length)]; return c;}
+async function createGame(){
+  ensureAudio();
+  for(let t=0;t<5;t++){
+    const code=genCode();
+    const ex=await fb('E04 Code pruefen',db.ref(ROOT+'/'+code+'/createdAt').get());
+    if(ex.exists())continue;
+    await fb('E04 Spiel erstellen',db.ref(ROOT+'/'+code).set(
+      {createdAt:TS(),version:APP_VERSION,pickN:S.lenN,phase:'lobby',qIndex:-1}));
+    S.role='host'; S.code=code; S.revealed={}; saveSess(); attach(); SFX.ding();
     return;
   }
-  if (mode === 'host') renderHost();
-  else if (mode === 'player') {
-    trackQuestionArrival();
-    renderPlayer();
+  toast('Kein freier Spielcode gefunden. Bitte erneut versuchen.');
+}
+async function setBots(n){
+  const g=S.game; if(!g)return;
+  const upd={};
+  for(let i=1;i<=20;i++){
+    const id='bot'+i, ex=!!(g.players&&g.players[id]);
+    if(i<=n&&!ex)upd['players/'+id]={name:BOTN[i-1],emoji:EMOJIS[(i*5)%EMOJIS.length],
+      score:0,streak:0,lastPoints:0,lastCorrect:false,joinedAt:Date.now()+i,online:true,bot:true};
+    else if(i>n&&ex)upd['players/'+id]=null;
   }
-  else if (mode === 'join') renderAvatarGrid();
+  if(Object.keys(upd).length)await fb('E14 Bots setzen',gref().update(upd));
+  toast('Bot-Truppe: '+n+' an Bord.'); SFX.ding();
 }
-
-function trackQuestionArrival() {
-  if (!session) return;
-  const q = currentQuestion(session);
-  if (session.status === 'question' && q && q.id !== lastQid) {
-    lastQid = q.id;
-    localSelected = [];
-    localSubmitted = false;
-    shownAt = now();
-  }
-}
-
-/* ---------- Host ---------- */
-async function createSession(pw) {
-  if (pw !== QUIZ.hostPassword) throw new Error('Admin-Code nicht korrekt.');
-  const c = makeCode();
-  await api.write('sessions/' + c, {
-    code: c, status: 'lobby', current: 0, createdAt: now(), locked: false,
-    timerExtra: 0, startedAt: null, paused: false, ended: false
-  });
-  mode = 'host';
-  qsel('host-code').textContent = c;
-  showScreen('scr-host');
-  subscribeSession(c);
-  startHostTick();
-}
-
-async function openQuestion(index) {
-  botPlanned.clear();
-  await api.patch('sessions/' + sessionCode, {
-    status: 'question', current: index, startedAt: now(), paused: false, pausedAt: null, timerExtra: 0
-  });
-}
-async function closeQuestion() {
-  if (!session || session.status !== 'question') return;
-  await api.patch('sessions/' + sessionCode, { status: 'reveal', closedAt: now() });
-}
-async function startQuiz() {
-  await api.patch('sessions/' + sessionCode, { status: 'countdown', locked: true, current: 0, startedAt: now() });
-  setTimeout(() => { openQuestion(0).catch((e) => showError(e.message)); }, 3000);
-}
-async function nextQuestion() {
-  const ni = ((session && session.current) || 0) + 1;
-  if (ni >= QUIZ.questions.length) return finishQuiz();
-  await openQuestion(ni);
-}
-async function prevQuestion() { await openQuestion(Math.max(0, ((session && session.current) || 0) - 1)); }
-async function skipQuestion() {
-  const q = currentQuestion(session);
-  await api.patch('sessions/' + sessionCode + '/skipped', { [q.id]: true });
-  await nextQuestion();
-}
-async function finishQuiz() { await api.patch('sessions/' + sessionCode, { status: 'ended', ended: true, endedAt: now() }); }
-async function resetSession() { await api.del('sessions/' + sessionCode); goHome(); }
-async function extendTimer() { await api.patch('sessions/' + sessionCode, { timerExtra: ((session && session.timerExtra) || 0) + 15 }); }
-async function togglePause() {
-  if (!session) return;
-  if (!session.paused) {
-    await api.patch('sessions/' + sessionCode, { paused: true, pausedAt: now() });
-  } else {
-    const shift = now() - (session.pausedAt || now());
-    await api.patch('sessions/' + sessionCode, { paused: false, pausedAt: null, startedAt: (session.startedAt || now()) + shift });
+function scheduleBots(g){
+  S.botTimers.forEach(clearTimeout); S.botTimers=[];
+  const i=g.qIndex, dq=deckQ(g,i), goAt=(g.questionStartAt||now())+COUNTDOWN_MS;
+  for(const pid in (g.players||{})){
+    if(!g.players[pid].bot)continue;
+    const wait=Math.max(300,goAt-now())+400+Math.random()*Math.max(800,dq.time*1000-1600);
+    const t=setTimeout(()=>{
+      const cg=S.game;
+      if(!cg||cg.phase!=='question'||cg.qIndex!==i)return;
+      const cd=dq.correctDisplay; let sel;
+      const r=Math.random();
+      if(r<0.62)sel=cd.slice();
+      else if(dq.type==='multi'&&r<0.78)sel=[cd[0]];
+      else{ const wrong=dq.opts.map((_,k)=>k).filter(k=>cd.indexOf(k)<0);
+        sel=[wrong.length?wrong[Math.floor(Math.random()*wrong.length)]:0]; }
+      db.ref(ROOT+'/'+S.code+'/answers/'+i+'/'+pid).set({sel,at:TS()})
+        .catch(e=>logErr('E13 bot answer',e));
+    },wait);
+    S.botTimers.push(t);
   }
 }
-
-function startHostTick() {
-  if (hostTick) clearInterval(hostTick);
-  hostTick = setInterval(() => {
-    if (mode !== 'host' || !session) return;
-    const q = currentQuestion(session);
-    /* Countdown-Watchdog: falls der Host während des Countdowns neu lädt */
-    if (session.status === 'countdown' && session.startedAt && now() - session.startedAt > 3500) {
-      openQuestion(session.current || 0).catch((e) => showError(e.message));
-      return;
+/* ---------------- player: join ---------------- */
+let curEmoji='🦉';
+async function joinGame(){
+  ensureAudio();
+  const code=$('#inCode').value.trim().toUpperCase();
+  const name=($('#inName').value.trim()||'Passagier:in').slice(0,16);
+  if(code.length!==4){toast('Bitte den vierstelligen Spielcode eingeben.'); return;}
+  const snap=await fb('E05 Spiel finden',db.ref(ROOT+'/'+code+'/createdAt').get());
+  if(!snap.exists()){toast('Kein Spiel unter Code '+code+'. Code beim Host pruefen.'); return;}
+  S.role='player'; S.code=code; S.name=name; S.emoji=curEmoji;
+  let pid=null; try{pid=sessionStorage.getItem('dl_pid_'+code);}catch(e){stWarn(e);}
+  if(!pid){pid='p'+Math.random().toString(36).slice(2,10);
+    try{sessionStorage.setItem('dl_pid_'+code,pid);}catch(e){stWarn(e);}}
+  S.pid=pid;
+  const me=db.ref(ROOT+'/'+code+'/players/'+pid);
+  const ex=await fb('E06 beitreten',me.get());
+  const base={name,emoji:S.emoji,online:true};
+  if(!ex.exists())Object.assign(base,{score:0,streak:0,lastPoints:0,lastCorrect:false,joinedAt:TS()});
+  await fb('E06 an Bord',me.update(base));
+  me.onDisconnect().update({online:false});
+  saveSess(); attach(); vib([20]);
+}
+/* ---------------- attach + resume ---------------- */
+function attach(){
+  $('#sbcode').textContent=S.code?('· '+S.code):'';
+  gref().on('value',snap=>{
+    const g=snap.val();
+    if(!g){if(S.game){toast('Das Spiel wurde vom Host beendet.'); leave();} return;}
+    S.lastSnapAt=Date.now();
+    S.game=g; render();
+  },e=>{logErr('E08 stream',e); toast('Fehler E08: Spiel-Stream verloren: '+(e.code||e.message));});
+  if(S.role==='player'&&S.pid){
+    const me=db.ref(ROOT+'/'+S.code+'/players/'+S.pid);
+    me.update({online:true}).catch(e=>logErr('E07 online',e));
+    me.onDisconnect().update({online:false});
+  }
+}
+async function resumeOrLand(){
+  const jp=new URLSearchParams(location.search).get('join');
+  if(jp){$('#inCode').value=jp.toUpperCase().slice(0,4); renderEmg(); go('s-join'); return;}
+  let s=null; try{s=JSON.parse(sessionStorage.getItem('dl_sess'));}catch(e){stWarn(e);}
+  if(s&&s.code&&s.role){
+    try{
+      const snap=await withTimeout(db.ref(ROOT+'/'+s.code+'/phase').get());
+      if(snap.exists()&&snap.val()!=='final'){
+        Object.assign(S,{role:s.role,code:s.code,pid:s.pid,name:s.name,emoji:s.emoji});
+        attach(); toast('Wieder eingestiegen: Spiel '+s.code+'.'); return;
+      }
+    }catch(e){logErr('E09 resume',e);}
+    try{sessionStorage.removeItem('dl_sess');}catch(e){}
+  }
+  go('s-landing');
+}
+/* ---------------- game control (host) ---------------- */
+async function startQuestion(i){
+  const g=S.game; if(!g)return;
+  const upd={phase:'question',qIndex:i,questionStartAt:TS(),quip:null};
+  if(i===0)upd.deck=makeDeck(g.pickN||S.lenN);
+  await fb('E10 Etappe '+(i+1)+' starten',gref().update(upd));
+}
+async function hostReveal(){
+  const g=S.game;
+  if(!g||g.phase!=='question'||!g.deck)return;
+  const i=g.qIndex;
+  if(S.revealed[i])return;
+  S.revealed[i]=true;
+  S.botTimers.forEach(clearTimeout); S.botTimers=[];
+  try{
+    const dq=deckQ(g,i);
+    const goAt=(g.questionStartAt||0)+COUNTDOWN_MS;
+    const ans=(g.answers&&g.answers[i])||{};
+    const prev=playersArr(g); const prevRank={};
+    prev.forEach((p,ix)=>prevRank[p.id]=ix);
+    const res=[]; const upd={};
+    const isLast=(i>=g.deck.length-1);
+    for(const pid in (g.players||{})){
+      const p=g.players[pid], a=ans[pid];
+      const answered=!!(a&&Array.isArray(a.sel));
+      let full=false, partial=false, pts=0, elapsed=null, streak=0;
+      if(answered){
+        elapsed=Math.max(0,(a.at||goAt)-goAt);
+        const r=scoreRaw(dq,a.sel,elapsed);
+        if(r.full){full=true; streak=(p.streak||0)+1;
+          pts=(r.points+Math.min(streak-1,5)*100)*(isLast?2:1);}
+        else if(r.partial){partial=true; streak=0; pts=r.points*(isLast?2:1);}
+        else {streak=0;}
+      }
+      const newScore=(p.score||0)+pts;
+      const ost=p.stats||{};
+      upd['players/'+pid+'/score']=newScore;
+      upd['players/'+pid+'/streak']=streak;
+      upd['players/'+pid+'/lastPoints']=pts;
+      upd['players/'+pid+'/lastCorrect']=full;
+      upd['players/'+pid+'/lastPartial']=partial;
+      upd['players/'+pid+'/lastAnswered']=answered;
+      upd['players/'+pid+'/stats']={
+        c:(ost.c||0)+(full?1:0),
+        p:(ost.p||0)+(partial?1:0),
+        b:Math.max(ost.b||0,streak),
+        f:full?Math.min(ost.f||999999,elapsed):(ost.f||999999)
+      };
+      res.push({id:pid,name:p.name||'Passagier:in',full,partial,answered,
+        elapsed:elapsed==null?999999:elapsed,
+        left:(full&&elapsed!=null)?Math.max(0,dq.time*1000-elapsed):0,
+        pts,newScore,streak,prev:prevRank[pid],joinedAt:p.joinedAt||0});
     }
-    if (session.status !== 'question' || !q) return;
-    if (q.id !== lastHostQid) { lastHostQid = q.id; }
-    const players = sortedArray(session.players);
-    const answers = (session.answers && session.answers[q.id]) || {};
-    const answeredCount = Object.keys(answers).length;
-    /* Restzeit-Anzeige tickt */
-    const remainEl = qsel('host-remaining');
-    if (remainEl && !session.paused) {
-      const remain = Math.max(0, Math.ceil(q.seconds + (session.timerExtra || 0) - (now() - session.startedAt) / 1000));
-      remainEl.textContent = String(remain);
+    upd.phase='reveal';
+    upd.quip=pickQuip(res,g,dq);
+    await fb('E11 aufloesen',gref().update(upd));
+  }catch(e){
+    S.revealed[i]=false;
+    logErr('E11 reveal',e);
+    if(!S.revealRetry[i]){
+      S.revealRetry[i]=true;
+      toast('Fehler E11: Aufloesung fehlgeschlagen. Automatischer Neuversuch.');
+      setTimeout(()=>hostReveal(),1200);
     }
-    /* Bots beantworten die Frage mit zufälliger Geschwindigkeit und Trefferquote */
-    if (!session.paused) {
-      players.filter((p) => p.bot && !answers[p.id]).forEach((p) => {
-        const key = q.id + '|' + p.id;
-        if (botPlanned.has(key)) return;
-        botPlanned.add(key);
-        const delay = 800 + Math.random() * Math.min(q.seconds * 1000 - 600, 8000);
-        setTimeout(() => {
-          const s = session;
-          if (!s || s.status !== 'question' || currentQuestion(s).id !== q.id) return;
-          const r = Math.random();
-          let selected;
-          if (r < 0.65) selected = [...q.correct];
-          else if (q.type === 'multi' && r < 0.8) selected = [q.correct[0]];
-          else {
-            const wrongOpts = q.options.map((_, i) => i).filter((i) => !q.correct.includes(i));
-            selected = [wrongOpts.length ? wrongOpts[Math.floor(Math.random() * wrongOpts.length)] : 0];
-          }
-          applyAnswer(sessionCode, s, p.id, q, selected, Math.round(delay)).catch((e) => showError('Bot-Antwort: ' + e.message));
-        }, delay);
+  }
+}
+function biggestClimb(res){
+  const sorted=res.slice().sort((x,y)=>y.newScore-x.newScore||x.joinedAt-y.joinedAt);
+  let best=null;
+  sorted.forEach((r,ix)=>{
+    const climb=(r.prev==null?ix:r.prev)-ix;
+    if(climb>=2&&(!best||climb>best.climb)){
+      const passed=sorted[ix+1]?sorted[ix+1].name:'das Feld';
+      best={name:r.name,climb,passed};
+    }
+  });
+  return best;
+}
+function pick(cat){
+  const pool=QUIPS[cat];
+  let i=Math.floor(Math.random()*pool.length);
+  if(pool.length>1&&i===S.lastQuip[cat])i=(i+1)%pool.length;
+  S.lastQuip[cat]=i; return pool[i];
+}
+function fillQ(t,v){return t.replace(/\{(\w+)\}/g,(m,k)=>(v[k]!=null?String(v[k]):m));}
+function pickQuip(res,g,dq){
+  const n=res.length;
+  const answered=res.filter(r=>r.answered);
+  const good=res.filter(r=>r.full);
+  const isLast=!!(g&&g.deck&&g.qIndex>=g.deck.length-1);
+  if(n>=2&&good.length===n)return pick('allRight');
+  if(n>=2&&answered.length>=1&&good.length===0)return pick('allWrong');
+  const sorted=res.slice().sort((a,b)=>b.newScore-a.newScore||a.joinedAt-b.joinedAt);
+  if(good.length){
+    if(isLast&&Math.random()<0.6){
+      const top=good.slice().sort((a,b)=>b.pts-a.pts)[0];
+      return fillQ(pick('lastStop'),{n:top.name,p:top.pts});
+    }
+    let cb=null;
+    sorted.forEach((r,ix)=>{
+      const climb=(r.prev==null?ix:r.prev)-ix;
+      if(ix<3&&climb>=2&&(!cb||climb>cb.k))cb={n:r.name,k:climb};
+    });
+    if(cb&&Math.random()<0.5)return fillQ(pick('overtake'),{n:cb.n,o:'die Konkurrenz',k:cb.k});
+    if(n>=3&&sorted.length>=2){
+      const d=(sorted[0].newScore||0)-(sorted[1].newScore||0);
+      if(d>0&&d<=100&&Math.random()<0.5)
+        return fillQ(pick('photo'),{a:sorted[0].name,b:sorted[1].name,d:d});
+    }
+    const tight=good.filter(r=>r.left<=1200).sort((a,b)=>a.left-b.left)[0];
+    if(tight&&Math.random()<0.55)
+      return fillQ(pick('lastGasp'),{n:tight.name,t:(tight.left/1000).toFixed(1)});
+    const g2=good.slice().sort((a,b)=>a.elapsed-b.elapsed); const f=g2[0];
+    if(f.streak>=3&&Math.random()<0.5)return fillQ(pick('streak'),{n:f.name,k:f.streak});
+    const ot=biggestClimb(res);
+    if(ot&&Math.random()<0.4)return fillQ(pick('overtake'),{n:ot.name,o:ot.passed,k:ot.climb});
+    return fillQ(pick('fast'),{n:f.name,t:(f.elapsed/1000).toFixed(1)});
+  }
+  return pick('generic');
+}
+/* ---------------- render dispatch ---------------- */
+function render(){
+  const g=S.game; if(!g)return;
+  try{
+    const ph=g.phase||'lobby';
+    const key=ph+':'+(g.qIndex==null?-1:g.qIndex);
+    const entered=(key!==S.phaseKey);
+    if(S.role==='host')renderHost(g,ph,entered); else renderPlayer(g,ph,entered);
+    if(entered){onEnter(g,ph); S.phaseKey=key; pushTrace(key);}
+  }catch(e){
+    const k=(g.phase||'?')+':'+(g.qIndex==null?'-':g.qIndex);
+    logErr('E23 render',((e&&e.message)||e)+' at '+k);
+    if(S.lastRenderErr!==k){
+      S.lastRenderErr=k;
+      toast('Fehler E23: Bildschirm-Update bei '+k+'. Erholung beim naechsten Update.');
+    }
+  }
+  renderDebug();
+}
+function onEnter(g,ph){
+  cancelAnimationFrame(S.raf);
+  clearInterval(S.hbT);
+  if(ph==='question'){
+    S.goPlayed[g.qIndex]=false;
+    lastCd=99; S.lastHot=0;
+    checkDeck(g);
+    const last=!!(g.deck&&g.qIndex>=g.deck.length-1);
+    $('#dblBan').hidden=!last;
+    document.body.classList.toggle('laststop',last);
+    if(last){SFX.klaxon(); if(!RM)S.hbT=setInterval(()=>tone(55,0.1,'sine',0.1),950);}
+    else if(g.qIndex===0)SFX.whistle(); else SFX.ding();
+    if(S.role==='host')scheduleBots(g);
+    qLoop();
+  }else{
+    $('#cdov').classList.remove('on');
+    $('#dblBan').hidden=true;
+    document.body.classList.remove('laststop');
+    S.botTimers.forEach(clearTimeout); S.botTimers=[];
+  }
+  if(ph==='reveal'){
+    if(S.role==='player'){
+      const me=(g.players||{})[S.pid]||{};
+      if(me.lastAnswered){
+        if(me.lastCorrect){SFX.right(); if(me.streak===3||me.streak===5)SFX.milestone(); else if(me.streak>=2)SFX.chug(me.streak);}
+        else if(me.lastPartial){SFX.partial();}
+        else {SFX.wrong(); vib([120]);}
+      }
+    }else{
+      try{
+        const dq=deckQ(g,g.qIndex);
+        const ans=(g.answers&&g.answers[g.qIndex])||{};
+        const cset=new Set(dq.correctDisplay);
+        let good=0;
+        for(const pid in ans){const sel=ans[pid].sel||[];
+          const ok=sel.length===dq.correctDisplay.length && sel.every(x=>cset.has(x));
+          if(ok)good++;}
+        SFX.results(good,Object.keys(g.players||{}).length);
+      }catch(e){logErr('E21 reveal sound',e);}
+    }
+  }
+  if(ph==='board')SFX.swish();
+  if(ph==='final'){ if(S.role==='host')runPodium(g); else runPlayerFinal(g); }
+}
+/* ----- host rendering ----- */
+function renderHost(g,ph,entered){
+  if(ph==='lobby'){
+    go('s-lobby');
+    $('#lobbyLine').textContent='SERVICE: BEREIT · '+(g.pickN||S.lenN)+' ETAPPEN';
+    $('#codebig').textContent=S.code;
+    if(!S.qrDone){
+      S.qrDone=true;
+      const url=location.origin+location.pathname+'?join='+S.code;
+      const a=$('#joinlink'); a.href=url; a.textContent=url;
+      try{new QRCode($('#qr'),{text:url,width:224,height:224,correctLevel:QRCode.CorrectLevel.M});}
+      catch(e){logErr('E17 qr',e); $('#qr').textContent='QR nicht verfuegbar. Link unten nutzen.';}
+    }
+    const arr=playersArr(g).sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+    const tr=$('#train'); const prevN=tr.childElementCount;
+    tr.textContent='';
+    arr.forEach(p=>{const c=el('div','car'); c.appendChild(el('div','cem',p.emoji||'🦉'));
+      c.appendChild(el('div','cnm',p.name||'Passagier:in')); tr.appendChild(c);});
+    if(arr.length>prevN&&prevN>0){if(arr.length%5===0)SFX.whistle(); else SFX.ding();}
+    $('#plc').textContent=arr.length+' an Bord';
+    const b=$('#btnStart');
+    b.disabled=arr.length===0;
+    b.textContent=arr.length===0?'Warte auf Passagiere':('Los geht die Reise ('+arr.length+' an Bord)');
+    return;
+  }
+  if(ph==='question'){
+    go('s-qh');
+    if(S.builtQ!==g.qIndex){
+      S.builtQ=g.qIndex;
+      const dq=deckQ(g,g.qIndex);
+      const rt=$('#route'); rt.textContent='';
+      g.deck.forEach((d,ix)=>{const dot=el('i');
+        if(ix<g.qIndex)dot.className='done'; if(ix===g.qIndex)dot.className='cur'; rt.appendChild(dot);});
+      $('#stopct').textContent='Etappe '+(g.qIndex+1)+' von '+g.deck.length;
+      $('#qhText').textContent=dq.text;
+      $('#qhState').textContent=dq.statement||(dq.type==='multi'?(dq.hint||'Mehrfachauswahl moeglich.'):'');
+      const box=$('#qhOpts'); box.textContent=''; box.classList.add('pre');
+      dq.opts.forEach((o,ix)=>{const d=el('div','opt i'+ix);
+        d.appendChild(el('span','sh',SHAPES[ix])); d.appendChild(el('span','otx',o)); box.appendChild(d);});
+      $('#btnReveal').disabled=true;
+    }
+    const total=Object.keys(g.players||{}).length;
+    const got=Object.keys((g.answers&&g.answers[g.qIndex])||{}).length;
+    $('#ansCount').textContent=got+' / '+total+' Tickets entwertet';
+    if(total>0&&got>=total&&!S.earlyT[g.qIndex]){
+      S.earlyT[g.qIndex]=true;
+      setTimeout(()=>hostReveal(),700);
+    }
+    return;
+  }
+  if(ph==='reveal'){
+    go('s-rvh');
+    if(entered){
+      const dq=deckQ(g,g.qIndex);
+      const cset=new Set(dq.correctDisplay);
+      $('#rvStop').textContent='Etappe '+(g.qIndex+1)+' von '+g.deck.length;
+      $('#rvText').textContent=dq.text;
+      const box=$('#rvOpts'); box.textContent='';
+      dq.opts.forEach((o,ix)=>{const isC=cset.has(ix);
+        const d=el('div','opt i'+ix+(isC?' right':' dead'));
+        d.appendChild(el('span','sh',SHAPES[ix])); d.appendChild(el('span','otx',o));
+        d.appendChild(el('span','ck',isC?'✓':'')); box.appendChild(d);});
+      const ans=(g.answers&&g.answers[g.qIndex])||{};
+      const counts=dq.opts.map(()=>0); let voters=0;
+      for(const pid in ans){const sel=ans[pid].sel||[]; if(sel.length)voters++;
+        sel.forEach(c=>{if(counts[c]!=null)counts[c]++;});}
+      const goAt=(g.questionStartAt||0)+COUNTDOWN_MS;
+      let fName=null,fMs=null;
+      for(const pid in ans){
+        const a2=ans[pid], sel=a2.sel||[];
+        const ok=sel.length===dq.correctDisplay.length && sel.every(x=>cset.has(x));
+        if(ok){const e2=Math.max(0,(a2.at||goAt)-goAt);
+          if(fMs==null||e2<fMs){fMs=e2; fName=(g.players&&g.players[pid]&&g.players[pid].name)||'Passagier:in';}}
+      }
+      const rv=$('#rvFast');
+      let ft=fName?('Schnellstes richtiges Ticket: '+fName+' in '+(fMs/1000).toFixed(1)+'s'):'';
+      if(fMs!=null){ if(S.bestMs==null)S.bestMs=fMs;
+        else if(fMs<S.bestMs){S.bestMs=fMs; ft+='   ·   NEUER STATIONSREKORD!'; SFX.pop(); SFX.ding();} }
+      rv.textContent=ft;
+      const bars=$('#bars'); bars.textContent='';
+      const denom=Math.max(1,voters);
+      dq.opts.forEach((o,ix)=>{
+        const b=el('div','bar i'+ix+(cset.has(ix)?' rt':''));
+        b.appendChild(el('span','sh',SHAPES[ix]));
+        const trk=el('div','trk'); const fl=el('div','fl'); trk.appendChild(fl); b.appendChild(trk);
+        const pc2=Math.round(counts[ix]/denom*100);
+        b.appendChild(el('span','ct',counts[ix]+' · '+pc2+'%'));
+        bars.appendChild(b);
+        requestAnimationFrame(()=>{fl.style.width=pc2+'%';});
       });
+      $('#rvExpl').textContent=dq.explanation||'';
     }
-    /* Automatisches Schliessen: alle geantwortet oder Zeit abgelaufen */
-    if (session.paused) return;
-    const elapsed = (now() - session.startedAt) / 1000;
-    if ((players.length > 0 && answeredCount >= players.length) || elapsed >= q.seconds + (session.timerExtra || 0)) {
-      closeQuestion().catch((e) => showError(e.message));
-    }
-  }, 400);
-}
-
-function spawnBots(n) {
-  if (!session || session.status !== 'lobby') return;
-  const players = sortedArray(session.players);
-  const usedAvatars = new Set(players.map((p) => p.avatar));
-  const usedNames = new Set(players.map((p) => p.name));
-  let added = 0;
-  for (let i = 0; i < 60 && added < n; i++) {
-    if (players.length + added >= QUIZ.maxPlayers) break;
-    const name = 'Bot ' + String(i + 1).padStart(2, '0');
-    if (usedNames.has(name)) continue;
-    let av = -1;
-    for (let a = 0; a < 30; a++) { if (!usedAvatars.has(a)) { av = a; break; } }
-    if (av < 0) break;
-    usedAvatars.add(av); usedNames.add(name); added++;
-    api.patch('sessions/' + sessionCode + '/players/bot-' + now() + '-' + i, {
-      name, avatar: av, ready: true, joinedAt: now(), connected: true, bot: true,
-      score: 0, streak: 0, maxStreak: 0, fullCorrect: 0, partialCorrect: 0, wrong: 0
-    }).catch((e) => showError('Bot-Beitritt: ' + e.message));
-  }
-}
-
-function renderHost() {
-  const root = qsel('host-main');
-  root.textContent = '';
-  if (!session) { root.appendChild(el('p', null, 'Lade Session...')); return; }
-  qsel('host-code').textContent = sessionCode;
-
-  if (session.status === 'ended') { renderFinalHost(root); return; }
-
-  const players = sortedArray(session.players);
-  const q = currentQuestion(session);
-  const answers = (q && session.answers && session.answers[q.id]) || {};
-  const answeredCount = Object.keys(answers).length;
-
-  const grid = el('div', 'grid two');
-
-  /* Beitritt */
-  const joinCard = el('div', 'card');
-  joinCard.appendChild(el('h3', null, 'Beitritt'));
-  const qrBox = el('div'); qrBox.id = 'qr-box';
-  joinCard.appendChild(qrBox);
-  const link = el('a', 'joinlink', joinUrl(sessionCode));
-  link.href = joinUrl(sessionCode);
-  link.target = '_blank';
-  joinCard.appendChild(link);
-  joinCard.appendChild(el('p', 'small', 'Nach Spielstart nur Wiederverbindung möglich.'));
-  grid.appendChild(joinCard);
-
-  /* Lobby */
-  const lobbyCard = el('div', 'card');
-  lobbyCard.appendChild(el('h3', null, 'Lobby'));
-  lobbyCard.appendChild(el('p', null, players.length + '/' + QUIZ.maxPlayers + ' Teilnehmende'));
-  lobbyCard.appendChild(el('p', null, 'Bereit: ' + players.filter((p) => p.ready).length + '/' + players.length));
-  if (session.status === 'lobby') {
-    const b = el('button', null, 'Quiz starten');
-    b.addEventListener('click', busyWrap(b, startQuiz));
-    lobbyCard.appendChild(b);
-    lobbyCard.appendChild(el('p', 'small', 'Test-Tipp: Taste B fügt 5 Bots hinzu, die automatisch mitspielen.'));
-  }
-  grid.appendChild(lobbyCard);
-  root.appendChild(grid);
-
-  if (session.status === 'countdown') {
-    const c = el('div', 'card');
-    c.appendChild(el('h2', null, '3, 2, 1'));
-    c.appendChild(el('p', null, QUIZ.startText));
-    root.appendChild(c);
-  }
-
-  if (q && session.status !== 'lobby' && session.status !== 'countdown') {
-    const card = el('div', 'card question');
-    card.appendChild(el('div', 'badge', q.icon || ''));
-    card.appendChild(el('h2', null, q.text));
-    if (q.statement) card.appendChild(el('p', null, q.statement));
-    card.appendChild(el('p', null, 'Geantwortet: ' + answeredCount + '/' + players.length));
-    if (session.status === 'question') {
-      const p = el('p', null, 'Restzeit: ');
-      const span = el('span', null, '');
-      span.id = 'host-remaining';
-      p.appendChild(span);
-      p.appendChild(document.createTextNode(' Sekunden' + (session.paused ? ' (pausiert)' : '')));
-      card.appendChild(p);
-    }
-    const actions = el('div', 'actions');
-    const mk = (label, fn, primary) => {
-      const b = el('button', primary ? null : 'secondary', label);
-      b.addEventListener('click', busyWrap(b, fn));
-      actions.appendChild(b);
-    };
-    mk(session.paused ? 'Weiter' : 'Pausieren', togglePause);
-    mk('+15 Sekunden', extendTimer);
-    mk('Zurück', prevQuestion);
-    mk('Überspringen', skipQuestion);
-    if (session.status === 'reveal') mk('Nächste Frage', nextQuestion, true);
-    card.appendChild(actions);
-    if (session.status === 'reveal') card.appendChild(renderReveal(q, players, answers));
-    root.appendChild(card);
-  }
-
-  /* Teilnehmerliste */
-  const tcard = el('div', 'card');
-  tcard.appendChild(el('h3', null, 'Teilnehmende'));
-  const table = el('table', 'table');
-  const tbody = el('tbody');
-  players.forEach((p) => {
-    const tr = el('tr');
-    const td0 = el('td'); td0.appendChild(avatarNode(p.avatar || 0, 34)); tr.appendChild(td0);
-    tr.appendChild(el('td', null, p.name || ''));
-    tr.appendChild(el('td', null, p.ready ? 'Bereit' : 'wartet'));
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  tcard.appendChild(table);
-  root.appendChild(tcard);
-
-  /* QR nur einmal pro Session rendern */
-  if (qrRendered !== sessionCode) {
-    qrRendered = sessionCode;
-    setTimeout(() => {
-      const box = qsel('qr-box');
-      if (!box) return;
-      if (typeof QRCode !== 'undefined') {
-        try { new QRCode(box, { text: joinUrl(sessionCode), width: 160, height: 160 }); }
-        catch (e) { showError('QR-Code konnte nicht erzeugt werden. Link-Fallback nutzen.'); }
-      }
-    }, 0);
-  } else {
-    /* vorhandenes QR-Bild in die neu gebaute Karte zurücksetzen */
-    setTimeout(() => {
-      const box = qsel('qr-box');
-      if (box && !box.firstChild && typeof QRCode !== 'undefined') {
-        try { new QRCode(box, { text: joinUrl(sessionCode), width: 160, height: 160 }); } catch (e) {}
-      }
-    }, 0);
-  }
-}
-
-function renderReveal(q, players, answers) {
-  const grid = el('div', 'grid two');
-  const a = el('div', 'card');
-  a.appendChild(el('h3', null, 'Auflösung'));
-  const rp = el('p'); rp.appendChild(el('b', null, 'Richtig: '));
-  rp.appendChild(document.createTextNode(q.correct.map((i) => q.options[i]).join(', ')));
-  a.appendChild(rp);
-  if (q.explanation) a.appendChild(el('p', null, q.explanation));
-  const right = players.filter((p) => answers[p.id] && answers[p.id].full).length;
-  a.appendChild(el('p', null, 'Richtig: ' + right + ' | Falsch/teilweise/nicht geantwortet: ' + (players.length - right)));
-  grid.appendChild(a);
-
-  const b = el('div', 'card');
-  b.appendChild(el('h3', null, 'Top 3 schnellste richtige Antworten'));
-  const top = players
-    .map((p) => ({ ...p, ans: answers[p.id] }))
-    .filter((p) => p.ans && p.ans.full)
-    .sort((x, y) => x.ans.elapsedMs - y.ans.elapsedMs)
-    .slice(0, 3);
-  if (top.length === 0) b.appendChild(el('p', null, 'Keine vollständig richtige Antwort.'));
-  top.forEach((p, i) => {
-    const line = el('p');
-    line.appendChild(el('b', null, (i + 1) + '. ' + p.name));
-    line.appendChild(document.createTextNode(' mit ' + (p.ans.elapsedMs / 1000).toFixed(2) + ' Sek.'));
-    b.appendChild(line);
-  });
-  grid.appendChild(b);
-  return grid;
-}
-
-function renderFinalHost(root) {
-  const rows = finalRows(session);
-  root.appendChild(el('h1', null, 'Der Projekt-Olymp ist erreicht'));
-  root.appendChild(el('p', null, 'Öffentlich sichtbar sind nur die Top 3.'));
-  const grid = el('div', 'podium-grid');
-  rows.slice(0, 3).forEach((p, i) => {
-    const c = el('div', 'card finalTop');
-    c.appendChild(el('div', 'badge', 'Platz ' + (i + 1)));
-    c.appendChild(el('h2', null, QUIZ.podium[i].title));
-    c.appendChild(el('p', null, QUIZ.podium[i].text));
-    const line = el('p'); line.appendChild(el('b', null, p.name)); line.appendChild(document.createTextNode(' mit ' + p.score + ' Punkten'));
-    c.appendChild(line);
-    grid.appendChild(c);
-  });
-  root.appendChild(grid);
-  const actions = el('div', 'actions');
-  const exp = el('button', null, 'CSV exportieren');
-  exp.addEventListener('click', busyWrap(exp, async () => {
-    const csv = buildCsv(session);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'digilex-ergebnisse-' + sessionCode + '.csv';
-    a.click();
-  }));
-  actions.appendChild(exp);
-  const rst = el('button', 'danger', 'Session zurücksetzen');
-  rst.addEventListener('click', busyWrap(rst, resetSession));
-  actions.appendChild(rst);
-  root.appendChild(actions);
-}
-
-/* ---------- Join ---------- */
-function renderAvatarGrid() {
-  const grid = qsel('avatar-grid');
-  grid.textContent = '';
-  const taken = new Set(sortedArray(session && session.players).filter((p) => p.id !== playerId).map((p) => p.avatar));
-  for (let i = 0; i < 30; i++) {
-    const d = el('div', 'avatar' + (joinAvatar === i ? ' selected' : '') + (taken.has(i) ? ' taken' : ''));
-    d.appendChild(avatarNode(i, 52));
-    d.addEventListener('click', () => { joinAvatar = i; renderAvatarGrid(); });
-    grid.appendChild(d);
-  }
-}
-
-async function enterSession() {
-  const errEl = qsel('join-err');
-  errEl.textContent = '';
-  const code = qsel('join-code').value.replace(/\D/g, '').slice(0, 6);
-  const name = qsel('join-name').value.trim();
-  const fail = (m) => { errEl.textContent = m; };
-  if (!code) return fail('Bitte Session-Code eingeben.');
-  const s = await api.read('sessions/' + code);
-  if (!s) return fail('Session nicht gefunden.');
-  const players = sortedArray(s.players);
-  const existing = s.players && s.players[playerId];
-  if (s.status !== 'lobby' && !existing) return fail('Das Quiz läuft bereits. Neuer Beitritt ist nicht mehr möglich.');
-  if (!existing && players.length >= QUIZ.maxPlayers) return fail('Maximale Teilnehmerzahl (' + QUIZ.maxPlayers + ') erreicht.');
-  if (!name || name.length > 20) return fail('Bitte eindeutigen Namen mit maximal 20 Zeichen eingeben.');
-  if (joinAvatar === null && !existing) return fail('Bitte einen freien Avatar wählen.');
-  if (players.some((p) => p.id !== playerId && (p.name || '').toLowerCase() === name.toLowerCase())) return fail('Dieser Name ist bereits vergeben.');
-  if (joinAvatar !== null && players.some((p) => p.id !== playerId && p.avatar === joinAvatar)) return fail('Dieser Avatar ist bereits vergeben.');
-  await api.patch('sessions/' + code + '/players/' + playerId, {
-    name,
-    avatar: joinAvatar !== null ? joinAvatar : existing.avatar,
-    ready: existing ? !!existing.ready : false,
-    joinedAt: now(), connected: true,
-    score: (existing && existing.score) || 0,
-    streak: (existing && existing.streak) || 0,
-    maxStreak: (existing && existing.maxStreak) || 0,
-    fullCorrect: (existing && existing.fullCorrect) || 0,
-    partialCorrect: (existing && existing.partialCorrect) || 0,
-    wrong: (existing && existing.wrong) || 0,
-    times: (existing && existing.times) || []
-  });
-  lastQid = null;
-  mode = 'player';
-  showScreen('scr-player');
-  subscribeSession(code);
-}
-
-/* ---------- Player ---------- */
-async function submitAnswer() {
-  if (!session || session.status !== 'question' || localSubmitted) return;
-  const q = currentQuestion(session);
-  const dbAns = session.answers && session.answers[q.id] && session.answers[q.id][playerId];
-  if (dbAns) { localSubmitted = true; renderPlayer(); return; }
-  const elapsedMs = Math.max(0, now() - shownAt);
-  localSubmitted = true;
-  const ok = await applyAnswer(sessionCode, session, playerId, q, [...localSelected], elapsedMs);
-  if (!ok) localSubmitted = true;
-  renderPlayer();
-}
-
-function renderPlayer() {
-  const root = qsel('player-main');
-  root.textContent = '';
-  if (!session) { root.appendChild(el('p', null, 'Verbindung wird hergestellt...')); return; }
-  const player = session.players && session.players[playerId];
-  if (!player) { root.appendChild(el('p', null, 'Verbindung wird hergestellt...')); return; }
-  const q = currentQuestion(session);
-
-  if (session.status === 'lobby') {
-    const grid = el('div', 'grid two');
-    const left = el('div');
-    left.appendChild(el('h2', null, 'Ihre digitale Odyssee beginnt gleich.'));
-    left.appendChild(el('p', null, 'Der Projekt-Olymp ruft. Bitte klicken Sie auf Bereit, sobald Name und Avatar passen.'));
-    const b = el('button', null, player.ready ? 'Nicht mehr bereit' : 'Bereit');
-    b.addEventListener('click', busyWrap(b, async () => {
-      await api.patch('sessions/' + sessionCode + '/players/' + playerId, { ready: !player.ready });
-    }));
-    left.appendChild(b);
-    grid.appendChild(left);
-    const av = el('div', 'lobby-avatar'); av.appendChild(avatarNode(player.avatar, 90));
-    grid.appendChild(av);
-    root.appendChild(grid);
+    $('#quip').textContent=g.quip||'';
     return;
   }
-
-  if (session.status === 'countdown') {
-    root.appendChild(el('h1', null, '3, 2, 1'));
-    root.appendChild(el('p', null, QUIZ.startText));
-    const av = el('div', 'lobby-avatar'); av.appendChild(avatarNode(player.avatar, 90));
-    root.appendChild(av);
+  if(ph==='board'){
+    go('s-board');
+    $('#lbStop').textContent='Nach Etappe '+(g.qIndex+1)+' von '+g.deck.length;
+    $('#nextRow').style.display='';
+    $('#btnNext').textContent=(g.qIndex<g.deck.length-1)?'Naechste Etappe':'Zum Finale';
+    if(entered)renderBoard(g,true);
+    $('#youline').textContent='';
     return;
   }
-
-  if (session.status === 'ended') { renderFinalPlayer(root); return; }
-
-  const dbAns = session.answers && session.answers[q.id] && session.answers[q.id][playerId];
-  const submitted = localSubmitted || !!dbAns;
-
-  root.appendChild(el('div', 'badge', q.icon || ''));
-  root.appendChild(el('h2', null, q.text));
-  if (q.hint) root.appendChild(el('p', 'notice', q.hint));
-  if (q.statement) root.appendChild(el('p', null, q.statement));
-
-  const opts = el('div', 'options');
-  q.options.forEach((o, i) => {
-    let cls = 'option';
-    if (localSelected.includes(i)) cls += ' selected';
-    if (session.status === 'reveal' && q.correct.includes(i)) cls += ' correct';
-    if (session.status === 'reveal' && dbAns && dbAns.selected && dbAns.selected.includes(i) && !q.correct.includes(i)) cls += ' wrong';
-    const b = el('button', cls);
-    b.appendChild(el('span', null, o));
-    if (localSelected.includes(i)) b.appendChild(el('span', null, '\u2713'));
-    b.disabled = submitted || session.status !== 'question';
-    b.addEventListener('click', () => {
-      if (submitted || session.status !== 'question') return;
-      if (q.type === 'multi') {
-        localSelected = localSelected.includes(i) ? localSelected.filter((x) => x !== i) : [...localSelected, i];
-      } else localSelected = [i];
-      renderPlayer();
+  if(ph==='final'){go('s-fh'); return;}
+  go('s-lobby');
+}
+/* ----- player rendering ----- */
+function renderPlayer(g,ph,entered){
+  const me=(g.players||{})[S.pid];
+  if(ph==='lobby'){
+    go('s-wait');
+    $('#waitEm').textContent=S.emoji; $('#waitNm').textContent=S.name;
+    $('#waitCt').textContent=Object.keys(g.players||{}).length+' PASSAGIER:INNEN AN BORD';
+    return;
+  }
+  if(ph==='question'){
+    if(!g.deck)return;
+    go('s-qp');
+    const i=g.qIndex;
+    if(S.builtQP!==i){
+      S.builtQP=i; S.localSel=[]; S.localSubmitted=false; S.optBtns=[];
+      const dq=deckQ(g,i);
+      $('#stopctP').textContent='Etappe '+(i+1)+' von '+g.deck.length;
+      $('#qpText').textContent=dq.text;
+      $('#qpState').textContent=dq.statement||'';
+      $('#qpHint').textContent=(dq.type==='multi')?(dq.hint||'Mehrfachauswahl moeglich.'):'';
+      $('#punched').style.display='none';
+      const box=$('#qpOpts'); box.textContent=''; box.classList.add('pre'); box.style.display='';
+      dq.opts.forEach((o,ix)=>{
+        const b=el('button','opt i'+ix);
+        b.appendChild(el('span','sh',SHAPES[ix])); b.appendChild(el('span','otx',o)); b.appendChild(el('span','ck','✓'));
+        b.addEventListener('click',()=>togglePick(dq,ix));
+        box.appendChild(b); S.optBtns.push(b);
+      });
+      $('#btnSubmit').disabled=true;
+    }
+    const dbAns=(g.answers&&g.answers[i]&&g.answers[i][S.pid]);
+    if(dbAns)S.localSubmitted=true;
+    updatePickUI();
+    return;
+  }
+  if(ph==='reveal'){
+    go('s-rvp');
+    if(entered&&me){
+      const i=g.qIndex;
+      const hash=((S.pid.charCodeAt(1))||7)+i;
+      const fin=!!(g.deck&&i>=g.deck.length-1);
+      if(!me.lastAnswered){
+        $('#vEm').textContent='⏳'; $('#vTx').textContent='Keine Antwort'; $('#vTx').className='vtx';
+        $('#vPt').textContent='+0'; $('#vSt').textContent=''; $('#vQ').textContent=V_NONE[hash%V_NONE.length];
+      }else if(me.lastCorrect){
+        $('#vEm').textContent='✅'; $('#vTx').textContent='Richtig!'; $('#vTx').className='vtx ok';
+        $('#vPt').textContent='+'+(me.lastPoints||0)+((fin&&me.lastPoints)?' · x2 letzte Etappe':'');
+        $('#vSt').textContent=(me.streak>=2)?('Serie '+me.streak+(me.streak>=3?'!':'')):'';
+        $('#vQ').textContent=V_RIGHT[hash%V_RIGHT.length];
+      }else if(me.lastPartial){
+        $('#vEm').textContent='➗'; $('#vTx').textContent='Teilweise richtig'; $('#vTx').className='vtx';
+        $('#vPt').textContent='+'+(me.lastPoints||0); $('#vSt').textContent='';
+        $('#vQ').textContent=V_PARTIAL[hash%V_PARTIAL.length];
+      }else{
+        $('#vEm').textContent='❌'; $('#vTx').textContent='Nicht dieses Mal'; $('#vTx').className='vtx bad';
+        $('#vPt').textContent='+0'; $('#vSt').textContent=''; $('#vQ').textContent=V_WRONG[hash%V_WRONG.length];
+      }
+      try{
+        const dq=deckQ(g,i);
+        const correctTxt=dq.correctDisplay.map(ci=>dq.opts[ci]).join(', ');
+        let t='Richtige Antwort: '+correctTxt;
+        const mine=(g.answers&&g.answers[i]&&g.answers[i][S.pid]);
+        if(mine&&Array.isArray(mine.sel)&&mine.sel.length){
+          const cset=new Set(dq.correctDisplay);
+          const wrongPicks=mine.sel.filter(x=>!cset.has(x)).map(x=>dq.opts[x]);
+          if(wrongPicks.length)t+='\nIhre falsche Wahl: '+wrongPicks.join(', ');
+        }
+        $('#vAns').textContent=t;
+      }catch(e){$('#vAns').textContent=''; logErr('E23 render','reveal detail: '+((e&&e.message)||e));}
+    }
+    return;
+  }
+  if(ph==='board'){
+    go('s-board');
+    $('#lbStop').textContent='Nach Etappe '+(g.qIndex+1)+' von '+g.deck.length;
+    $('#nextRow').style.display='none';
+    if(entered)renderBoard(g,true);
+    const arr=playersArr(g); const r=arr.findIndex(p=>p.id===S.pid);
+    $('#youline').textContent=(r>=0)?('Sie: Platz '+(r+1)+' · '+(arr[r].score||0)+' Punkte'):'';
+    return;
+  }
+  if(ph==='final'){go('s-fp'); return;}
+  go('s-wait');
+}
+/* ---------------- answering ---------------- */
+function togglePick(dq,ix){
+  const g=S.game;
+  if(!g||g.phase!=='question'||g.qIndex==null)return;
+  if(now()<(g.questionStartAt||0)+COUNTDOWN_MS)return;
+  if(S.localSubmitted)return;
+  if(dq.type==='multi'){
+    const at=S.localSel.indexOf(ix);
+    if(at>=0)S.localSel.splice(at,1); else S.localSel.push(ix);
+  }else{
+    S.localSel=[ix];
+  }
+  SFX.click(); vib([10]);
+  updatePickUI();
+}
+function updatePickUI(){
+  S.optBtns.forEach((b,ix)=>{
+    b.classList.toggle('pick',S.localSel.indexOf(ix)>=0);
+    b.disabled=S.localSubmitted;
+  });
+  const box=$('#qpOpts');
+  $('#btnSubmit').disabled=(S.localSubmitted||S.localSel.length===0);
+  if(S.localSubmitted){box.style.display='none'; $('#btnSubmit').style.display='none'; $('#punched').style.display='block';}
+  else{box.style.display=''; $('#btnSubmit').style.display=''; $('#punched').style.display='none';}
+}
+async function submitAnswer(){
+  const g=S.game;
+  if(!g||g.phase!=='question'||g.qIndex==null)return;
+  const i=g.qIndex;
+  if(now()<(g.questionStartAt||0)+COUNTDOWN_MS)return;
+  if(S.localSubmitted||!S.localSel.length)return;
+  if(!S.offKnown&&!S.ckWarn){S.ckWarn=true; logErr('E25 clock','Antwort vor Server-Uhr-Sync; Tempo evtl. leicht ungenau');}
+  S.localSubmitted=true;
+  const sel=S.localSel.slice();
+  updatePickUI(); SFX.punch(); vib([15]);
+  try{
+    await fb('E12 Antwort senden',db.ref(ROOT+'/'+S.code+'/answers/'+i+'/'+S.pid).set({sel,at:TS()}));
+  }catch(e){
+    S.localSubmitted=false; updatePickUI();
+  }
+}
+/* ---------------- question loop (timer + countdown) ---------------- */
+let lastCd=99;
+function qLoop(){
+  const g=S.game;
+  if(!g||g.phase!=='question'||!g.deck){$('#cdov').classList.remove('on'); return;}
+  const i=g.qIndex, dq=deckQ(g,i);
+  const qsa=g.questionStartAt||now();
+  const goAt=qsa+COUNTDOWN_MS, endAt=goAt+dq.time*1000, n=now();
+  const ov=$('#cdov'), num=$('#cdnum');
+  if(n<goAt){
+    ov.classList.add('on'); num.className='';
+    const k=Math.ceil((goAt-n)/1000);
+    if(k!==lastCd){lastCd=k; num.textContent=String(k); SFX.tick();}
+  }else{
+    if(!S.goPlayed[i]){S.goPlayed[i]=true;
+      const fresh=(n-goAt)<800;
+      if(fresh){SFX.go(); vib([30]); num.textContent='LOS'; num.className='go'; setTimeout(()=>ov.classList.remove('on'),450);}
+      else ov.classList.remove('on');
+      $('#qhOpts').classList.remove('pre'); $('#qpOpts').classList.remove('pre');
+      $('#btnReveal').disabled=false;
+    }
+    if(n-goAt>500)ov.classList.remove('on');
+    const rem=Math.max(0,endAt-n), prog=clamp((n-goAt)/(dq.time*1000),0,1);
+    const sec=Math.ceil(rem/1000);
+    if(rem<3200&&rem>0&&sec!==S.lastHot){S.lastHot=sec; SFX.tock();}
+    const railId=(S.role==='host')?'#railH':'#railP';
+    const rail=$(railId);
+    rail.querySelector('.tr').style.left=(prog*100)+'%';
+    rail.classList.toggle('hot',rem<3200&&rem>0);
+    $((S.role==='host')?'#qhSec':'#qpSec').textContent=String(sec);
+    if(S.role==='host'&&rem<=0){hostReveal(); return;}
+  }
+  S.raf=requestAnimationFrame(qLoop);
+}
+/* ---------------- leaderboard (FLIP + count-up) ---------------- */
+function renderBoard(g,animate){
+  const box=$('#lb');
+  box.textContent='';
+  const arr=playersArr(g);
+  const uncapped=!!(g.deck&&g.qIndex>=g.deck.length-1);
+  const shown=uncapped?arr:arr.slice(0,TOP_N);
+  const n=Math.max(1,shown.length);
+  const avail=Math.max(140,($('#lbwrap').clientHeight||300)-34);
+  const gap=6;
+  const rowH=clamp(Math.floor(avail/n)-gap,uncapped?22:32,62);
+  box.style.height=(n*(rowH+gap))+'px';
+  const prevScore=p=>(p.score||0)-(p.lastPoints||0);
+  const prevArr=arr.slice().sort((a,b)=>prevScore(b)-prevScore(a)||(a.joinedAt||0)-(b.joinedAt||0)||(a.id<b.id?-1:1));
+  const prevRank={}; prevArr.forEach((p,ix)=>prevRank[p.id]=ix);
+  const doAnim=!!animate&&!RM;
+  const rows=[];
+  let anyClimb=false;
+  shown.forEach((p,ix)=>{
+    const row=el('div','lbrow'+(ix<3?(' p'+(ix+1)):'')+((p.id===S.pid)?' me':''));
+    row.appendChild(el('span','rk','#'+(ix+1)));
+    row.appendChild(el('span','em',p.emoji||'🦉'));
+    row.appendChild(el('span','nm',p.name||'Passagier:in'));
+    row.appendChild(el('span','fl',(p.streak>=2)?('Serie '+p.streak):''));
+    const sc=el('span','sc',String(doAnim?prevScore(p):(p.score||0)));
+    row.appendChild(sc);
+    row.style.height=rowH+'px';
+    row.style.fontSize=clamp(rowH*0.38,10,20)+'px';
+    const y=ix*(rowH+gap);
+    const py=(prevRank[p.id]!=null?prevRank[p.id]:ix)*(rowH+gap);
+    row.style.transition='none';
+    row.style.transform='translateY('+(doAnim?py:y)+'px)';
+    box.appendChild(row);
+    const climb=(prevRank[p.id]!=null&&prevRank[p.id]>ix);
+    if(climb)anyClimb=true;
+    rows.push({row,sc,y,from:prevScore(p),to:(p.score||0),climb});
+  });
+  if(doAnim){
+    setTimeout(()=>{
+      rows.forEach(r=>{
+        if(!r.row.isConnected)return;
+        r.row.style.transition='';
+        r.row.style.transform='translateY('+r.y+'px)';
+        if(r.climb)r.row.classList.add('climb');
+        countUp(r.sc,r.from,r.to);
+      });
+      if(anyClimb)SFX.swish();
+    },550);
+    setTimeout(()=>boardWatchdog(rows),1900);
+  }
+}
+function boardWatchdog(rows){
+  let snapped=0;
+  rows.forEach(r=>{
+    if(!r.row.isConnected)return;
+    try{
+      const m=new DOMMatrixReadOnly(getComputedStyle(r.row).transform);
+      if(Math.abs(m.m42-r.y)>3){r.row.style.transition='none'; r.row.style.transform='translateY('+r.y+'px)'; snapped++;}
+      r.sc.textContent=String(r.to);
+    }catch(e){r.row.style.transition='none'; r.row.style.transform='translateY('+r.y+'px)'; r.sc.textContent=String(r.to); snapped++;}
+  });
+  if(snapped)logErr('E22 board watchdog','snapped '+snapped+' Zeile(n)');
+}
+function countUp(elm,from,to){
+  if(RM||from===to){elm.textContent=String(to); return;}
+  const t0=performance.now(), dur=700;
+  function step(t){
+    const p=clamp((t-t0)/dur,0,1);
+    elm.textContent=String(Math.round(from+(to-from)*(1-Math.pow(1-p,3))));
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+/* ---------------- final screens + celebration ---------------- */
+let celebOn=false, celebSnd=0, celebRaf=0;
+function heroFor(p,pickN){
+  const st=p.stats||{}; const c=st.c||0, pp=st.p||0, b=st.b||0, f=(st.f!=null?st.f:999999);
+  const rate=c/Math.max(1,pickN);
+  if(rate>=0.7)return HEROES[0];
+  if(f<3000&&c>=1)return HEROES[1];
+  if(b>=3)return HEROES[4];
+  if(pp>=1)return HEROES[5];
+  if(c>=2)return HEROES[7];
+  if(rate>=0.5)return HEROES[3];
+  if((p.score||0)<1200)return HEROES[11];
+  return HEROES[9];
+}
+function runPodium(g){
+  const arr=playersArr(g);
+  [['#pod1',0],['#pod2',1],['#pod3',2]].forEach(pair=>{
+    const sel=pair[0], ix=pair[1], p=arr[ix], e=$(sel);
+    e.querySelector('.pem').textContent=p?(p.emoji||'🦉'):'·';
+    e.querySelector('.pnm').textContent=p?(p.name||'Passagier:in'):'·';
+    e.querySelector('.ptitle').textContent=p?PODIUM[ix].title:'';
+    e.querySelector('.psc').textContent=p?String(p.score||0):'';
+    e.classList.remove('in');
+  });
+  const man=$('#manifest'); man.textContent='';
+  arr.slice(3).forEach((p,ix)=>{
+    const c=el('div','mcard');
+    c.appendChild(el('span','mr','#'+(ix+4)));
+    c.appendChild(el('span','me2',p.emoji||'🦉'));
+    c.appendChild(el('span','mn',p.name||'Passagier:in'));
+    c.appendChild(el('span','ms',String(p.score||0)));
+    man.appendChild(c);
+  });
+  $('#fhTitle').textContent='Der Projekt-Olymp ruft';
+  $('#mtTitle').hidden=true; man.hidden=true;
+  $('#btnAgain').hidden=true; $('#btnCeleb').hidden=true; $('#btnCopyRes').hidden=true; $('#btnCsv').hidden=true;
+  if(RM){
+    ['#pod1','#pod2','#pod3'].forEach(s=>$(s).classList.add('in'));
+    SFX.fanfare(); finishFinal(); return;
+  }
+  setTimeout(()=>{$('#pod3').classList.add('in'); SFX.ding();},400);
+  setTimeout(()=>{$('#pod2').classList.add('in'); SFX.ding();},1600);
+  setTimeout(()=>SFX.drum(),2600);
+  setTimeout(()=>{$('#pod1').classList.add('in'); startCelebration();},4300);
+}
+function startCelebration(){
+  celebOn=true; $('#btnCeleb').hidden=false;
+  SFX.fanfare(); vibOK();
+  clearInterval(celebSnd);
+  celebSnd=setInterval(()=>{if(celebOn)SFX.party();},2600);
+  celebLoop();
+}
+function finishFinal(){
+  $('#fhTitle').textContent='Endstation, Start des Wandels';
+  $('#mtTitle').hidden=false; $('#manifest').hidden=false;
+  $('#btnAgain').hidden=false; $('#btnCeleb').hidden=true; $('#btnCopyRes').hidden=false; $('#btnCsv').hidden=false;
+  buildReport(S.game);
+}
+function buildReport(g){
+  try{
+    if(!g||!g.deck){$('#report').hidden=true; return;}
+    const players=g.players||{}; const ids=Object.keys(players);
+    const deckN=g.deck.length||1;
+    let worst={i:-1,rate:-1};
+    g.deck.forEach((d,qi)=>{
+      const dq=deckQ(g,qi); const cset=new Set(dq.correctDisplay);
+      const am=(g.answers&&g.answers[qi])||{}; let good=0;
+      for(const pid in am){const sel=am[pid].sel||[];
+        if(sel.length===dq.correctDisplay.length&&sel.every(x=>cset.has(x)))good++;}
+      const rate=1-(good/Math.max(1,ids.length));
+      if(rate>worst.rate)worst={i:qi,rate,txt:dq.text,ans:dq.correctDisplay.map(ci=>dq.opts[ci]).join(', ')};
     });
-    opts.appendChild(b);
+    let fast=null,fk=null,str=null,sk=0,sumC=0;
+    ids.forEach(pid=>{const st=players[pid].stats||{};
+      sumC+=st.c||0;
+      if(st.f&&st.f<999999&&(fk==null||st.f<fk)){fk=st.f; fast=players[pid].name;}
+      if((st.b||0)>sk){sk=st.b||0; str=players[pid].name;}});
+    const acc=Math.round(100*sumC/Math.max(1,ids.length*deckN));
+    const parts=[];
+    if(worst.i>=0)parts.push('Schwierigste Etappe: '+(worst.i+1)+' ('+Math.round(worst.rate*100)+'% verpasst)');
+    if(fast)parts.push('Schnellste Finger: '+fast+' ('+(fk/1000).toFixed(1)+'s)');
+    if(str&&sk>=2)parts.push('Laengste Serie: '+str+' ('+sk+')');
+    parts.push('Klassengenauigkeit: '+acc+'%');
+    let rep=parts.join('    ·    ');
+    if(worst.i>=0&&worst.txt){
+      const tq=worst.txt.length>110?(worst.txt.slice(0,107)+'...'):worst.txt;
+      rep+='\n'+tq+'\nRichtig: '+worst.ans;
+    }
+    $('#report').textContent=rep; $('#report').hidden=false;
+  }catch(e){logErr('E28 report',e); $('#report').hidden=true;}
+}
+function endCelebration(){
+  celebOn=false; clearInterval(celebSnd); cancelAnimationFrame(celebRaf);
+  const cv=$('#confc'); cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+  SFX.ding(); finishFinal();
+}
+function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}catch(e){return '';}}
+function celebLoop(){
+  const cv=$('#confc'), ctx=cv.getContext('2d');
+  cv.width=innerWidth; cv.height=innerHeight;
+  const cols=['--zh-flag','--zh-sky','--gold','--white','--zh-himmel'].map(v=>cssVar(v)||'white');
+  const ps=[]; let lastB=0, lastC=0;
+  function burst(){
+    const cx=cv.width*(0.15+Math.random()*0.7), cy=cv.height*(0.12+Math.random()*0.33);
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    for(let k=0;k<26;k++){const a=Math.PI*2*k/26, sp=2+Math.random()*3.2;
+      ps.push({f:1,x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,c:c});}
+  }
+  function frame(t){
+    if(!celebOn){ctx.clearRect(0,0,cv.width,cv.height); return;}
+    if(t-lastB>700){lastB=t; burst();}
+    if(t-lastC>130){lastC=t;
+      for(let k=0;k<5;k++)ps.push({f:0,x:Math.random()*cv.width,y:-12,
+        vx:(Math.random()-0.5)*2,vy:2+Math.random()*3,s:4+Math.random()*6,
+        c:cols[k%cols.length],r:Math.random()*Math.PI,vr:(Math.random()-0.5)*0.25,life:1});}
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(let i=ps.length-1;i>=0;i--){const p=ps[i];
+      if(p.f){p.x+=p.vx; p.y+=p.vy; p.vy+=0.045; p.life-=0.016;
+        ctx.globalAlpha=Math.max(p.life,0); ctx.fillStyle=p.c;
+        ctx.beginPath(); ctx.arc(p.x,p.y,2.4,0,6.283); ctx.fill();
+      }else{p.x+=p.vx; p.y+=p.vy; p.vy+=0.02; p.r+=p.vr;
+        ctx.globalAlpha=1; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r);
+        ctx.fillStyle=p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); ctx.restore();}
+      if(p.life<=0||p.y>cv.height+30)ps.splice(i,1);
+    }
+    ctx.globalAlpha=1;
+    if(ps.length>800)ps.splice(0,ps.length-800);
+    celebRaf=requestAnimationFrame(frame);
+  }
+  celebRaf=requestAnimationFrame(frame);
+}
+function runPlayerFinal(g){
+  const arr=playersArr(g);
+  const r=arr.findIndex(p=>p.id===S.pid);
+  const me=r>=0?arr[r]:{score:0};
+  $('#fpPlace').textContent=r>=0?('#'+(r+1)):'·';
+  $('#fpEm').textContent=(r===0)?'🥇':(r===1)?'🥈':(r===2)?'🥉':(S.emoji||'🦉');
+  const pickN=(g.deck&&g.deck.length)||S.lenN;
+  if(r>=0&&r<3){$('#fpNm').textContent=PODIUM[r].title;}
+  else if(r>=0){$('#fpNm').textContent=heroFor(me,pickN).title;}
+  else $('#fpNm').textContent=S.name;
+  $('#fpSc').textContent=(me.score||0)+' Punkte';
+  const st=me.stats||{};
+  const parts=['Richtig '+(st.c||0)+' / '+pickN,'Beste Serie '+(st.b||0)];
+  if(st.p)parts.push('Teilrichtig '+st.p);
+  if(st.f&&st.f<999999)parts.push('Schnellste '+(st.f/1000).toFixed(1)+'s');
+  $('#fpStats').textContent=parts.join('   ·   ');
+  if(r>=0&&r<3){$('#fpQ').textContent=F_PLACE[Math.min(r,3)];}
+  else if(r>=0){$('#fpQ').textContent=heroFor(me,pickN).text;}
+  else $('#fpQ').textContent=F_PLACE[3];
+  if(r>=0&&r<3){
+    SFX.fanfare(); vibOK();
+    if(!RM){
+      const c=$('#fpConf'); c.textContent='';
+      const em=['🎉','✨','🎊','⭐','🌿'];
+      for(let k=0;k<26;k++){const sp=el('i',null,em[k%em.length]);
+        sp.style.left=(Math.random()*100)+'%';
+        sp.style.animationDuration=(2.6+Math.random()*2.2)+'s';
+        sp.style.animationDelay=(Math.random()*1.4)+'s';
+        sp.style.fontSize=(13+Math.random()*15)+'px';
+        c.appendChild(sp);}
+      setTimeout(()=>{c.textContent='';},6500);
+    }
+  }else SFX.ding();
+}
+/* ---------------- background animation (Zuerich diagonals) ---------------- */
+let bgOn=false, bgRaf=0, bgFit=false;
+function stopBg(){bgOn=false; cancelAnimationFrame(bgRaf);
+  const cv=$('#bgc'); const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);}
+function startBg(){
+  if(bgOn)return; bgOn=true;
+  const cv=$('#bgc'), ctx=cv.getContext('2d');
+  let bands=[], laurels=[];
+  function seed(){
+    const n=Math.max(10,Math.min(22,Math.round(innerWidth/90)));
+    bands=Array.from({length:n},(_,k)=>({x:Math.random()*(cv.width+cv.height)-cv.height*0.5,
+      w:40+Math.random()*90, sp:0.15+Math.random()*0.45, c:Math.random()}));
+    const m=Math.max(6,Math.min(16,Math.round(innerWidth/160)));
+    laurels=Array.from({length:m},()=>({x:Math.random(),y:Math.random(),sp:0.02+Math.random()*0.05,
+      s:8+Math.random()*10,dr:Math.random()*6.28,vr:(Math.random()-0.5)*0.01}));
+  }
+  function fit(){cv.width=innerWidth; cv.height=innerHeight; seed();}
+  if(!bgFit){bgFit=true; addEventListener('resize',fit);}
+  fit();
+  let last=performance.now();
+  function frame(){
+    if(!bgOn)return;
+    const nw=performance.now(); const dt=Math.min(50,nw-last); last=nw;
+    const flag=cssVar('--zh-flag')||'#268BCC';
+    const sky=cssVar('--zh-sky')||'#7AB6E2';
+    const white=cssVar('--white')||'#fff';
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.save();
+    for(let i=0;i<bands.length;i++){const b=bands[i];
+      b.x+=b.sp*dt*0.06;
+      if(b.x-cv.height>cv.width+40)b.x=-cv.height*0.5-40;
+      ctx.globalAlpha=0.05+b.c*0.05;
+      ctx.strokeStyle=b.c<0.5?flag:(b.c<0.85?sky:white);
+      ctx.lineWidth=b.w;
+      ctx.beginPath(); ctx.moveTo(b.x,-20); ctx.lineTo(b.x-cv.height,cv.height+20); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.save();
+    for(let i=0;i<laurels.length;i++){const l=laurels[i];
+      l.y-=l.sp*dt*0.004; if(l.y<-0.05){l.y=1.05; l.x=Math.random();} l.dr+=l.vr;
+      ctx.globalAlpha=0.10; ctx.fillStyle=sky;
+      ctx.save(); ctx.translate(l.x*cv.width,l.y*cv.height); ctx.rotate(l.dr);
+      ctx.beginPath(); ctx.ellipse(0,0,l.s,l.s*0.4,0,0,6.28); ctx.fill(); ctx.restore();
+    }
+    ctx.restore();
+    ctx.globalAlpha=1;
+    if(!RM)bgRaf=requestAnimationFrame(frame);
+  }
+  frame();
+}
+/* ---------------- debug panel ---------------- */
+function renderDebug(){
+  const d=$('#debug'); if(!d||d.hidden)return;
+  const g=S.game||{};
+  const age=S.lastSnapAt?Math.round((Date.now()-S.lastSnapAt)/1000):-1;
+  $('#dbmeta').textContent=[
+    'app      Digilex '+APP_VERSION,
+    'role     '+(S.role||'-'),
+    'code     '+(S.code||'-'),
+    'pid      '+(S.pid||'-'),
+    'phase    '+(g.phase||'-')+'  qIndex '+(g.qIndex==null?'-':g.qIndex),
+    'players  '+Object.keys(g.players||{}).length+'  deck '+((g.deck&&g.deck.length)||0),
+    'clock    '+Math.round(S.off)+'ms   connected '+($('#conn').classList.contains('on')),
+    'stream   '+(age<0?'noch keine Daten':(age+'s seit letztem Update'+(age>15?'  STALE':''))),
+    'firebase '+(firebaseConfig.projectId||'-')
+  ].join('\n');
+  $('#dbtrace').textContent=S.trace.slice().reverse().join('\n')||'Noch keine Uebergaenge.';
+  $('#dblog').textContent=ERR.slice().reverse().join('\n')||'Keine Fehler protokolliert. Schoen.';
+}
+/* ---------------- static build ---------------- */
+function renderEmg(){
+  const eg=$('#emg'); if(eg.childElementCount)return;
+  EMOJIS.forEach((e2,ix)=>{
+    const b=el('button',ix===0?'sel':'',e2); b.type='button';
+    b.addEventListener('click',()=>{curEmoji=e2; S.emoji=e2;
+      eg.querySelectorAll('button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');});
+    eg.appendChild(b);
   });
-  root.appendChild(opts);
-
-  if (session.status === 'question') {
-    const sb = el('button', null, submitted ? 'Antwort gesendet' : 'Antwort absenden');
-    sb.disabled = localSelected.length === 0 || submitted;
-    sb.id = 'btn-submit';
-    sb.addEventListener('click', busyWrap(sb, submitAnswer));
-    root.appendChild(sb);
-  }
-
-  if (session.status === 'reveal') {
-    const c = el('div', 'card');
-    c.appendChild(el('h3', null, dbAns && dbAns.full ? 'Richtig!' : dbAns && dbAns.partial ? 'Teilweise richtig.' : 'Nicht richtig.'));
-    c.appendChild(el('p', null, 'Punkte: ' + (dbAns ? (dbAns.points || 0) + (dbAns.bonus || 0) : 0)));
-    c.appendChild(el('p', null, 'Ihre Antwortzeit: ' + (dbAns ? (dbAns.elapsedMs / 1000).toFixed(2) + ' Sekunden' : 'keine Antwort')));
-    c.appendChild(el('p', null, 'Punktestand: ' + (player.score || 0)));
-    c.appendChild(el('p', null, 'Richtige Serie: ' + (player.streak || 0)));
-    root.appendChild(c);
-  }
 }
-
-function renderFinalPlayer(root) {
-  const rows = finalRows(session);
-  const me = rows.find((r) => r.id === playerId);
-  if (!me) { root.appendChild(el('p', null, 'Danke fürs Mitspielen.')); return; }
-  if (me.rank <= 3) {
-    const pod = QUIZ.podium[me.rank - 1];
-    root.appendChild(el('div', 'badge', 'Aufstieg in den Projekt-Olymp'));
-    root.appendChild(el('h1', null, pod.title));
-    root.appendChild(el('p', null, pod.text));
-    root.appendChild(el('p', null, me.score + ' Punkte'));
-  } else {
-    root.appendChild(el('div', 'badge', 'Ihr Held:innenprofil'));
-    root.appendChild(el('h1', null, me.profile.title));
-    root.appendChild(el('p', 'small', me.profile.icon));
-    root.appendChild(el('p', null, me.profile.text));
-    root.appendChild(el('p', null, me.score + ' Punkte'));
-  }
-  root.appendChild(el('p', 'small', 'Die anderen Platzierungen werden nicht öffentlich angezeigt.'));
-}
-
-/* ---------- Init ---------- */
-function init() {
-  qsel('version-tag').textContent = VERSION;
-  if (api.__stub) {
-    const n = qsel('config-notice');
-    n.textContent = api.__notice;
-    n.style.display = 'block';
-  }
-  qsel('home-title').textContent = QUIZ.title;
-  qsel('home-qcount').textContent = String(QUIZ.questions.length);
-  qsel('home-maxplayers').textContent = String(QUIZ.maxPlayers);
-  validateQuiz();
-
-  qsel('btn-host').addEventListener('click', () => { showScreen('scr-hostlogin'); });
-  qsel('btn-login-back').addEventListener('click', () => { showScreen('scr-home'); });
-  qsel('btn-join-back').addEventListener('click', () => { goHome(); });
-  const createBtn = qsel('btn-create');
-  createBtn.addEventListener('click', busyWrap(createBtn, async () => {
-    qsel('login-err').textContent = '';
-    try { await createSession(qsel('host-pw').value); }
-    catch (e) { qsel('login-err').textContent = e.message; }
+function wire(){
+  $('#btnHost').addEventListener('click',()=>{ensureAudio(); $('#hostPw').value=''; $('#loginErr').textContent=''; go('s-hostlogin');});
+  $('#btnLoginBack').addEventListener('click',()=>go('s-landing'));
+  $('#btnCreate').addEventListener('click',ev=>{
+    const pw=$('#hostPw').value;
+    if(pw!==HOST_PASSWORD){$('#loginErr').textContent='Admin-Code nicht korrekt.'; return;}
+    $('#loginErr').textContent=''; go('s-setup');
+  });
+  $('#btnSetupBack').addEventListener('click',()=>go('s-hostlogin'));
+  $('#btnLen5').addEventListener('click',ev=>{S.lenN=5; busy(ev.currentTarget,createGame);});
+  $('#btnLen10').addEventListener('click',ev=>{S.lenN=10; busy(ev.currentTarget,createGame);});
+  $('#btnLen15').addEventListener('click',ev=>{S.lenN=15; busy(ev.currentTarget,createGame);});
+  $('#btnHow').addEventListener('click',()=>go('s-howto'));
+  $('#btnHowBack').addEventListener('click',()=>go('s-landing'));
+  $('#codebig').addEventListener('click',()=>{if(!S.code)return; $('#codeovTxt').textContent=S.code; $('#codeov').hidden=false;});
+  $('#codeov').addEventListener('click',()=>{$('#codeov').hidden=true;});
+  $('#muteBtn').addEventListener('click',()=>{ensureAudio(); setMute(!MUTED);});
+  $('#homeBtn').addEventListener('click',()=>{
+    if(S.code&&S.game&&S.game.phase!=='final'){
+      const msg=(S.role==='host')?'Dies verlaesst das gehostete Spiel. Zum Start zurueck?':'Dies verlaesst das aktuelle Spiel. Wiedereinstieg mit dem Code moeglich. Zum Start zurueck?';
+      if(!confirm(msg))return;
+    }
+    leave();
+  });
+  $('#btnSndChk').addEventListener('click',()=>{ensureAudio(); SFX.whistle(); setTimeout(()=>SFX.right(),800);});
+  $('#btnJoinGo').addEventListener('click',()=>{ensureAudio(); renderEmg(); go('s-join');});
+  $('#btnBackJ').addEventListener('click',()=>go('s-landing'));
+  $('#btnBoard').addEventListener('click',ev=>busy(ev.currentTarget,joinGame));
+  $('#btnSubmit').addEventListener('click',ev=>busy(ev.currentTarget,submitAnswer));
+  $('#btnStart').addEventListener('click',ev=>busy(ev.currentTarget,()=>{SFX.whistle(); return startQuestion(0);}));
+  $('#btnReveal').addEventListener('click',ev=>busy(ev.currentTarget,hostReveal));
+  $('#btnBoardShow').addEventListener('click',ev=>busy(ev.currentTarget,()=>fb('E15 Board zeigen',gref().update({phase:'board'}))));
+  $('#btnNext').addEventListener('click',ev=>busy(ev.currentTarget,()=>{
+    const g=S.game;
+    if(g.qIndex<g.deck.length-1)return startQuestion(g.qIndex+1);
+    return fb('E16 Finale',gref().update({phase:'final'}));
   }));
-  qsel('btn-join').addEventListener('click', () => {
-    mode = 'join';
-    renderAvatarGrid();
-    showScreen('scr-join');
+  $('#btnAgain').addEventListener('click',()=>leave());
+  $('#btnCeleb').addEventListener('click',()=>endCelebration());
+  $('#btnCopyRes').addEventListener('click',()=>{
+    const g=S.game; if(!g)return;
+    const deckN=(g.deck&&g.deck.length)||0;
+    const lines=['Digilex Ergebnisse · '+deckN+' Etappen'];
+    playersArr(g).forEach((p,ix)=>{const st=p.stats||{};
+      lines.push('#'+(ix+1)+'  '+(p.name||'Passagier:in')+'  '+(p.score||0)+' Punkte  ('+(st.c||0)+'/'+deckN+' richtig)');});
+    const txt=lines.join('\n');
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(()=>toast('Ergebnisse in die Zwischenablage kopiert.'),()=>toast('Kopieren fehlgeschlagen. Ein Screenshot geht auch.'));
+    else toast('Kopieren wird hier nicht unterstuetzt.');
   });
-  const enterBtn = qsel('btn-enter');
-  enterBtn.addEventListener('click', busyWrap(enterBtn, enterSession));
-  qsel('join-code').addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
-    const c = e.target.value;
-    if (c.length === 6 && mode === 'join') subscribeSession(c);
+  $('#btnCsv').addEventListener('click',()=>{
+    const g=S.game; if(!g)return;
+    const deckN=(g.deck&&g.deck.length)||0;
+    const head=['Rang','Name','Emblem','Punkte','Richtig','Teilrichtig','MaxSerie'];
+    const rows=[head.join(';')];
+    playersArr(g).forEach((p,ix)=>{const st=p.stats||{};
+      const vals=[ix+1,p.name||'Passagier:in',p.emoji||'',p.score||0,st.c||0,st.p||0,st.b||0];
+      rows.push(vals.map(v=>'"'+String(v).split('"').join('""')+'"').join(';'));});
+    const csv='\ufeff'+rows.join('\n');
+    try{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='digilex-ergebnisse-'+S.code+'.csv'; a.click();
+    }catch(e){toast('CSV-Export fehlgeschlagen.'); logErr('E30 csv',e);}
   });
-  document.addEventListener('keydown', (e) => {
-    if ((e.key === 'b' || e.key === 'B') && mode === 'host' && session && session.status === 'lobby') spawnBots(5);
+  $('#vtag').addEventListener('click',()=>{const d=$('#debug'); d.hidden=!d.hidden; renderDebug();});
+  $('#dbClose').addEventListener('click',()=>{$('#debug').hidden=true;});
+  $('#dbCopy').addEventListener('click',()=>{
+    const txt=$('#dbmeta').textContent+'\n\nPHASEN\n'+$('#dbtrace').textContent+'\n\nFEHLER\n'+$('#dblog').textContent;
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(()=>toast('Log kopiert.'),()=>toast('Kopieren fehlgeschlagen. Text manuell markieren.'));
+    else toast('Kopieren nicht unterstuetzt. Text manuell markieren.');
   });
-
-  const params = new URLSearchParams(location.search);
-  const j = params.get('join');
-  if (j) {
-    mode = 'join';
-    qsel('join-code').value = j.replace(/\D/g, '').slice(0, 6);
-    subscribeSession(qsel('join-code').value);
-    renderAvatarGrid();
-    showScreen('scr-join');
-  } else {
-    showScreen('scr-home');
-  }
+  $('#inCode').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().split('').filter(ch=>/[A-Z0-9]/.test(ch)).join('');});
+  document.addEventListener('keydown',e=>{
+    const k=(e.key||'').toLowerCase();
+    if(BOTKEYS[k]&&S.role==='host'&&S.game&&S.game.phase==='lobby'){
+      const t=document.activeElement&&document.activeElement.tagName;
+      if(t!=='INPUT'&&t!=='TEXTAREA')setBots(BOTKEYS[k]).catch(()=>{});
+    }
+  });
+  document.addEventListener('pointerdown',()=>{ensureAudio();},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)ensureAudio();});
+  addEventListener('resize',()=>{const g=S.game; if(g&&g.phase==='board')renderBoard(g,false);});
 }
-
-/* Test- und Debug-Zugriff (wird auch von den automatischen Tests genutzt) */
-window.__digilex = { api, scoreAnswer, finalRows, assignProfile, applyAnswer, buildCsv, validateQuiz, QUIZ, heroProfiles, VERSION, get session() { return session; }, get sessionCode() { return sessionCode; }, get playerId() { return playerId; } };
-
-init();
+/* ---------------- boot ---------------- */
+validatePools();
+renderEmg();
+wire();
+updateVtag();
+try{setMute(sessionStorage.getItem('dl_mute')==='1');}catch(e){setMute(false);}
+S.screen='s-landing';
+startBg();
+startTicker('#insTick');
+if(initFB())resumeOrLand();
 </script>
 </body>
 </html>
