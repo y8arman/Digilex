@@ -4,42 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Digilex: Das Epos der VD</title>
-<!--
-  Digilex: Das Epos der VD, bist du unser:e Projektheld:in
-  Single-file Echtzeit-Multiplayer-Quiz. Host auf dem Beamer, Teilnehmende per QR.
-  Architektur portiert aus The Positive RailWay (host-autoritativ, kein Client-Scoring).
-  Design: Kanton Zuerich Corporate Identity (Dunkelblau, Weiss, Darkmode-Hellblau, ein Goldakzent).
-  ================= SETUP =================
-  1) FIREBASE: der Block FIREBASE-KONFIGURATION unten nutzt das Projekt digilex-quiz
-     (europe-west1). databaseURL muss vorhanden sein und zur Region passen.
-  2) DATENBANK-REGELN: nicht auf Testmodus verlassen (laeuft nach ca. 30 Tagen ab).
-     Build, Realtime Database, Regeln, folgendes veroeffentlichen:
-     { "rules": { "sessions": { "$code": { ".read": true, ".write": true } } } }
-  3) DEPLOY: GitHub, diese index.html hochladen bzw. ueberschreiben, committen.
-     Settings, Pages, Deploy from branch, main, root. Fertig.
-  ================= TESTPROTOKOLL =================
-  Deployte Seite oeffnen, Host starten, Admin-Code, Rundenlaenge waehlen, in der Lobby
-  Taste B (5 Bots), X (10), Q (15), T (20). Eine volle Runde spielen und Leaderboard,
-  Podium und Finale bei voller Klassengroesse pruefen.
-  ================= BUG HUNTING =================
-  Version-Tag unten rechts antippen: Debug-Panel mit Live-State und Fehlerlog.
-  Jeder Firebase-Aufruf hat 9 Sekunden Timeout und meldet Fehler sichtbar als Toast.
--->
 <style>
   /*ROOT-START*/
   :root{
-    /* Kanton Zuerich CI, verifizierte Werte */
-    --zh-blue:#0070B4;     /* Akzent Blau */
-    --zh-deep:#00407C;     /* Dunkelblau */
-    --zh-flag:#268BCC;     /* Fahnenblau */
-    --zh-soft:#EDF5FA;     /* Softblau */
-    --zh-sky:#7AB6E2;      /* Darkmode Hellblau */
-    --zh-himmel:#78A8F0;   /* Darkmode Himmelblau */
-    --gold:#E7BC61;        /* einziger Goldakzent, sparsam */
-    --white:#FFFFFF;
+    --zh-blue:#0070B4; --zh-deep:#00407C; --zh-flag:#268BCC; --zh-soft:#EDF5FA;
+    --zh-sky:#7AB6E2; --zh-himmel:#78A8F0; --gold:#E7BC61; --white:#FFFFFF;
     --font-heading:'Inter','Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif;
     --font-body:'Inter','Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif;
-    /* semantik */
     --a1:var(--zh-sky); --a2:var(--zh-himmel); --ink:var(--white); --dim:#A9C6DE;
     --bg0:#041d33; --bg1:#0a2f52;
     --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.16);
@@ -92,7 +63,6 @@
     border:2px solid var(--ink); border-top-color:transparent; animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .btn.ghost{background:rgba(255,255,255,.05); border-color:var(--line); box-shadow:none;}
-  .btn.gold{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 30%,transparent),rgba(255,255,255,.04)); border-color:color-mix(in srgb,var(--gold) 55%,transparent);}
   .btnrow{display:flex; gap:14px; margin-top:24px; flex-wrap:wrap; justify-content:center;}
   .field{width:100%; max-width:420px; margin-top:14px;}
   .field label{display:block; font-size:.78rem; letter-spacing:.12em; color:var(--dim);
@@ -114,7 +84,6 @@
     display:flex; flex-direction:column; align-items:center; gap:6px; transition:transform .12s, border-color .2s, box-shadow .2s;}
   .lenb:hover{transform:translateY(-3px); border-color:var(--a1); box-shadow:0 0 22px color-mix(in srgb,var(--a1) 30%,transparent);}
   .lenb small{font-size:.72rem; color:var(--dim); font-weight:600; letter-spacing:.04em;}
-  /* lobby */
   .lobbygrid{display:grid; grid-template-columns:280px 1fr; gap:24px; width:100%; margin-top:16px;
     align-items:start; flex:1; min-height:0;}
   .qrbox{background:var(--white); border-radius:14px; padding:12px; width:248px; margin:0 auto;}
@@ -131,7 +100,6 @@
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   @keyframes carin{from{transform:translateY(12px); opacity:0;} to{transform:none; opacity:1;}}
   .hint{color:var(--dim); font-size:.78rem; margin-top:10px; text-align:center;}
-  /* question */
   .qtop{display:flex; align-items:center; justify-content:space-between; width:100%; gap:14px;}
   #route{display:flex; gap:7px; align-items:center; flex-wrap:wrap;}
   #route i{width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,.16);
@@ -171,7 +139,6 @@
   #ansCount{margin-top:12px; color:var(--dim); font-weight:700; letter-spacing:.04em;}
   .punched{margin-top:18px; text-align:center; font-weight:800; font-size:1.2rem;}
   .punched .big{font-size:2.6rem; display:block; margin-bottom:6px;}
-  /* countdown overlay */
   #cdov{position:fixed; inset:0; z-index:30; display:none; flex-direction:column; gap:10px;
     align-items:center; justify-content:center; background:var(--bg0);}
   #cdpeek{font-weight:900; letter-spacing:.16em; text-transform:uppercase;
@@ -179,7 +146,6 @@
   #cdov.on{display:flex;}
   #cdnum{font-weight:900; font-size:clamp(6rem,26vh,13rem);}
   #cdnum.go{color:var(--ok); text-shadow:0 0 30px color-mix(in srgb,var(--ok) 70%,transparent);}
-  /* reveal */
   .quip{margin-top:14px; font-size:clamp(1rem,2.2vh + .5vw,1.4rem); color:var(--gold);
     font-weight:700; text-align:center; max-width:900px; line-height:1.4;}
   .quip::before{content:"DAS ORAKEL: "; color:var(--dim); font-size:.72em; letter-spacing:.1em;}
@@ -203,7 +169,6 @@
   .verdict .vq{color:var(--dim); margin-top:12px; font-size:1rem;}
   .verdict .vans{margin-top:12px; color:var(--dim); font-size:.95rem; white-space:pre-line; line-height:1.5;}
   .ok{color:var(--ok);} .bad{color:var(--bad);}
-  /* leaderboard */
   #lbwrap{width:100%; max-width:900px; flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto;}
   #lb{position:relative; flex:1; min-height:0; margin-top:10px;}
   .lbrow{position:absolute; left:0; right:0; display:grid; grid-template-columns:46px 40px 1fr auto auto;
@@ -224,7 +189,6 @@
   .lbrow.climb{animation:climbf 1s ease;}
   @keyframes climbf{0%{box-shadow:0 0 0 rgba(255,255,255,0);} 30%{box-shadow:0 0 26px color-mix(in srgb,var(--a1) 60%,transparent);} 100%{box-shadow:0 0 0 rgba(255,255,255,0);}}
   #youline{margin-top:10px; text-align:center; color:var(--dim); font-weight:700;}
-  /* final */
   #podium{display:flex; align-items:flex-end; justify-content:center; gap:18px; width:100%;
     max-width:820px; height:clamp(200px,38vh,340px); margin-top:8px;}
   .pod{flex:1; max-width:220px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
@@ -255,7 +219,6 @@
     border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:10px;
     padding:9px 14px; font-size:.8rem; font-weight:700; color:var(--ink); text-align:center;
     white-space:pre-line; line-height:1.55;}
-  /* toast, status, debug */
   #toast{position:fixed; top:14px; left:50%; transform:translate(-50%,-140%); z-index:60;
     background:color-mix(in srgb,var(--zh-deep) 92%,#000); border:1px solid var(--bad); color:var(--ink);
     padding:12px 18px; border-radius:12px; font-weight:700; max-width:min(92vw,560px);
@@ -281,7 +244,6 @@
   #debug .btnrow{margin-top:8px;}
   #setupBanner{position:fixed; top:0; left:0; right:0; z-index:65; background:var(--zh-blue); color:var(--white);
     padding:10px 16px; font-weight:700; text-align:center; display:none; font-size:.9rem;}
-  /* landing effects */
   .logo{
     background:linear-gradient(100deg,var(--a1) 0%,var(--white) 30%,var(--a2) 55%,var(--a1) 100%);
     background-size:280% 100%;
@@ -343,42 +305,42 @@
   <section id="s-landing" class="screen on"><div class="wrap" style="justify-content:center;">
     <h1 class="logo" style="margin-top:6px;">Digilex</h1>
     <div class="sub">Das Epos der VD</div>
-    <div class="tagline">Bist du unser:e Projektheld:in? Sieben Etappen zum Projekt-Olymp.</div>
+    <div class="tagline">Bist du unser:e Projektheld:in? Die Reise zum Projekt-Olymp.</div>
     <div class="btnrow">
       <button class="btn" id="btnHost">Host starten</button>
       <button class="btn ghost" id="btnJoinGo">Teilnehmen</button>
       <button class="btn ghost" id="btnHow">So wird gespielt</button>
     </div>
     <div class="tickline mono" id="insTick"></div>
-    <div class="credit">Ein Townhall-Quiz zur digitalen Verwaltung. Kanton Zuerich.</div>
+    <div class="credit">Ein Townhall-Quiz zur digitalen Verwaltung. Kanton Zürich.</div>
   </div></section>
 
   <section id="s-howto" class="screen"><div class="wrap" style="justify-content:flex-start; overflow:auto;">
     <div class="ht">
-      <button class="btn ghost" id="btnHowBack" style="padding:8px 18px; font-size:.9rem;">Zurueck zum Start</button>
+      <button class="btn ghost" id="btnHowBack" style="padding:8px 18px; font-size:.9rem;">Zurück zum Start</button>
       <h1 class="glow" style="font-size:clamp(1.5rem,4vw,2.3rem); margin-top:14px;">So wird gespielt</h1>
-      <h2>Kurz fuer Teilnehmende</h2>
+      <h2>Kurz für Teilnehmende</h2>
       <ul>
-        <li>QR-Code auf dem grossen Bildschirm scannen, oder die App oeffnen, auf <span class="lbl">Teilnehmen</span> tippen und den vierstelligen Code eingeben. Ein spaeterer Einstieg ist jederzeit moeglich.</li>
-        <li>Namen eingeben (maximal 16 Zeichen), ein Reise-Emblem waehlen und in der Lobby warten.</li>
-        <li>Nach dem 3, 2, 1 Countdown die Antwort auswaehlen und absenden. Bei Mehrfachauswahl koennen zwei Antworten richtig sein. Schnell und richtig gewinnt.</li>
+        <li>QR-Code auf dem grossen Bildschirm scannen, oder die App öffnen, auf <span class="lbl">Teilnehmen</span> tippen und den vierstelligen Code eingeben. Ein späterer Einstieg ist jederzeit möglich.</li>
+        <li>Namen eingeben (maximal 16 Zeichen), ein Reise-Emblem wählen und in der Lobby warten.</li>
+        <li>Nach dem 3, 2, 1 Countdown die Antwort auswählen und absenden. Bei Mehrfachauswahl können zwei Antworten richtig sein. Schnell und richtig gewinnt.</li>
       </ul>
-      <h2>Kurz fuer den Host</h2>
+      <h2>Kurz für den Host</h2>
       <ul>
         <li>Auf dem Startbildschirm <span class="lbl">Host starten</span> tippen und den Admin-Code eingeben.</li>
-        <li>Rundenlaenge waehlen (5, 10 oder 15 Fragen).</li>
-        <li>Lobby teilen: Teilnehmende scannen den QR oder nutzen den Code. Auf den Code tippen vergroessert ihn.</li>
+        <li id="li-lengths">Rundenlänge wählen.</li>
+        <li>Lobby teilen: Teilnehmende scannen den QR oder nutzen den Code. Auf den Code tippen vergrössert ihn.</li>
         <li><span class="lbl">Los geht die Reise</span> tippen, sobald alle an Bord sind.</li>
       </ul>
       <h2>Punkte und Serien</h2>
-      <p>Eine richtige Antwort bringt zwischen 500 Punkten (am Ende der Zeit) und 1000 Punkten (sofort), Tempo zaehlt also. Jede weitere richtige Antwort in Folge bringt zusaetzlich +100, bis maximal +500. Bei Mehrfachauswahl gibt es Teilpunkte, wenn nur ein Teil richtig gewaehlt und nichts Falsches angetippt wurde. Eine falsche oder verpasste Antwort bringt null und setzt die Serie zurueck. Bei der letzten Frage zaehlt alles doppelt.</p>
+      <p>Eine richtige Antwort bringt zwischen 500 Punkten (am Ende der Zeit) und 1000 Punkten (sofort), Tempo zählt also. Jede weitere richtige Antwort in Folge bringt zusätzlich +100, bis maximal +500. Bei Mehrfachauswahl gibt es Teilpunkte, wenn nur ein Teil richtig gewählt und nichts Falsches angetippt wurde. Eine falsche oder verpasste Antwort bringt null und setzt die Serie zurück. Bei der letzten Frage zählt alles doppelt.</p>
       <h2>Gegen Bots spielen</h2>
-      <p>In der Lobby ruft der Host per Tastatur eine Bot-Truppe: <span class="kb">B</span> = 5, <span class="kb">X</span> = 10, <span class="kb">Q</span> = 15, <span class="kb">T</span> = 20. Bots antworten mit zufaelligem Tempo und zufaelliger Trefferquote, ideal zum Testen bei voller Klassengroesse.</p>
-      <h2>Wieder verbinden und spaeter beitreten</h2>
-      <p>Wer den Code hat, kann jederzeit mitten im Spiel beitreten und wird ab der naechsten Frage eingereiht. Laedt ein Handy neu, setzt es die Sitzung mit dem Punktestand fort. Laedt der Host neu, laeuft das Spiel weiter.</p>
+      <p>In der Lobby ruft der Host per Tastatur eine Bot-Truppe: <span class="kb">B</span> = 5, <span class="kb">X</span> = 10, <span class="kb">Q</span> = 15, <span class="kb">T</span> = 20. Bots antworten mit zufälligem Tempo und zufälliger Trefferquote, ideal zum Testen bei voller Klassengrösse.</p>
+      <h2>Wieder verbinden und später beitreten</h2>
+      <p>Wer den Code hat, kann jederzeit mitten im Spiel beitreten und wird ab der nächsten Frage eingereiht. Lädt ein Handy neu, setzt es die Sitzung mit dem Punktestand fort. Lädt der Host neu, läuft das Spiel weiter.</p>
       <h2>Wenn etwas nicht geht</h2>
       <ul>
-        <li>Version-Tag unten rechts antippen. Es oeffnet das Debug-Panel mit Live-State und Fehlerlog, und <span class="lbl">Log kopieren</span> legt alles in die Zwischenablage.</li>
+        <li>Version-Tag unten rechts antippen. Es öffnet das Debug-Panel mit Live-State und Fehlerlog, und <span class="lbl">Log kopieren</span> legt alles in die Zwischenablage.</li>
       </ul>
     </div>
   </div></section>
@@ -387,28 +349,24 @@
     <h1 class="glow" style="font-size:clamp(1.4rem,5vw,2rem);">Host-Zugang</h1>
     <div class="field"><label>Admin-Code</label><input id="hostPw" type="password" autocomplete="off" placeholder="Admin-Code"></div>
     <div class="btnrow"><button class="btn" id="btnCreate">Weiter</button>
-      <button class="btn ghost" id="btnLoginBack">Zurueck</button></div>
+      <button class="btn ghost" id="btnLoginBack">Zurück</button></div>
     <p id="loginErr" class="hint" style="color:var(--bad); min-height:1.2em;"></p>
   </div></section>
 
   <section id="s-setup" class="screen"><div class="wrap" style="justify-content:center;">
     <h1 class="glow" style="font-size:clamp(1.4rem,4vw,2.2rem);">Wie lang soll die Reise sein?</h1>
-    <div class="sub" style="letter-spacing:.16em;">Fragen werden zufaellig aus dem Pool gezogen</div>
-    <div class="lenrow" id="lenRow">
-      <button class="lenb" id="btnLen5">5<small>Kurzstrecke</small></button>
-      <button class="lenb" id="btnLen10">10<small>Standard</small></button>
-      <button class="lenb" id="btnLen15">15<small>Die volle Odyssee</small></button>
-    </div>
-    <div class="btnrow"><button class="btn ghost" id="btnSetupBack">Zurueck</button></div>
+    <div class="sub" style="letter-spacing:.16em;">Fragen werden zufällig aus dem Pool gezogen</div>
+    <div class="lenrow" id="lenRow"></div>
+    <div class="btnrow"><button class="btn ghost" id="btnSetupBack">Zurück</button></div>
   </div></section>
 
   <section id="s-join" class="screen"><div class="wrap" style="justify-content:center; overflow:auto;">
-    <h1 class="glow" style="font-size:clamp(1.4rem,5vw,2rem);">Ticket loesen</h1>
+    <h1 class="glow" style="font-size:clamp(1.4rem,5vw,2rem);">Ticket lösen</h1>
     <div class="field"><label>Spielcode</label><input id="inCode" maxlength="4" autocomplete="off" placeholder="ABCD"></div>
     <div class="field"><label>Ihr Name (maximal 16)</label><input id="inName" maxlength="16" autocomplete="off" placeholder="Passagier:in"></div>
-    <div class="field"><label>Reise-Emblem waehlen</label><div class="emg" id="emg"></div></div>
+    <div class="field"><label>Reise-Emblem wählen</label><div class="emg" id="emg"></div></div>
     <div class="btnrow"><button class="btn" id="btnBoard">An Bord</button>
-      <button class="btn ghost" id="btnBackJ">Zurueck</button></div>
+      <button class="btn ghost" id="btnBackJ">Zurück</button></div>
   </div></section>
 
   <section id="s-lobby" class="screen"><div class="wrap">
@@ -418,7 +376,7 @@
         <div class="sub" style="letter-spacing:.16em; margin-bottom:8px;">Scannen und einsteigen</div>
         <div class="qrbox"><div id="qr"></div></div>
         <a class="joinurl" id="joinlink" target="_blank" rel="noopener"></a>
-        <div class="codebig glow" id="codebig" style="margin-top:8px; cursor:pointer;" title="Antippen zum Vergroessern"></div>
+        <div class="codebig glow" id="codebig" style="margin-top:8px; cursor:pointer;" title="Antippen zum Vergrössern"></div>
         <div class="tickline mono" id="lobTick"></div>
       </div>
       <div class="lpanel">
@@ -453,7 +411,7 @@
     <div class="qstate" id="qhState"></div>
     <div class="opts" id="qhOpts"></div>
     <div id="ansCount">0 / 0 Tickets entwertet</div>
-    <div class="btnrow" style="margin-top:10px;"><button class="btn ghost" id="btnReveal">Jetzt aufloesen</button></div>
+    <div class="btnrow" style="margin-top:10px;"><button class="btn ghost" id="btnReveal">Jetzt auflösen</button></div>
   </div></section>
 
   <section id="s-qp" class="screen"><div class="wrap">
@@ -465,7 +423,7 @@
     <div class="opts" id="qpOpts"></div>
     <div class="btnrow" style="margin-top:12px;"><button class="btn" id="btnSubmit" disabled>Antwort absenden</button></div>
     <div class="punched" id="punched" style="display:none;"><span class="big">🎫</span>Ticket entwertet!<br>
-      <span style="color:var(--dim); font-weight:600; font-size:.9rem;">Warten auf die Aufloesung</span></div>
+      <span style="color:var(--dim); font-weight:600; font-size:.9rem;">Warten auf die Auflösung</span></div>
   </div></section>
 
   <section id="s-rvh" class="screen"><div class="wrap">
@@ -496,7 +454,7 @@
       <div class="stopct" id="lbStop"></div>
     </div>
     <div id="lbwrap"><div id="lb"></div><div id="youline"></div></div>
-    <div class="btnrow" id="nextRow" style="margin-top:12px;"><button class="btn" id="btnNext">Naechste Etappe</button></div>
+    <div class="btnrow" id="nextRow" style="margin-top:12px;"><button class="btn" id="btnNext">Nächste Etappe</button></div>
   </div></section>
 
   <section id="s-fh" class="screen"><div class="wrap">
@@ -507,7 +465,7 @@
       <div class="pod g3" id="pod3"><div class="mdl">🥉</div><div class="pem"></div><div class="pnm"></div><div class="ptitle"></div><div class="psc"></div><span class="bar"></span></div>
     </div>
     <div id="report" hidden></div>
-    <div class="manif-title" id="mtTitle" hidden>Vollstaendiges Passagierverzeichnis</div>
+    <div class="manif-title" id="mtTitle" hidden>Vollständiges Passagierverzeichnis</div>
     <div id="manifest" hidden></div>
     <div class="btnrow" style="margin-top:10px;">
       <button class="btn" id="btnCeleb" hidden>Feier beenden</button>
@@ -524,7 +482,7 @@
     <div style="color:var(--dim); font-weight:800; margin-top:6px;" id="fpSc"></div>
     <div class="vans" id="fpStats" style="text-align:center;"></div>
     <div class="vq" style="color:var(--gold); font-weight:700; margin-top:14px; text-align:center; max-width:440px;" id="fpQ"></div>
-    <div class="credit">Die digitale Verwaltung dankt fuer die Reise.</div>
+    <div class="credit">Die digitale Verwaltung dankt für die Reise.</div>
   </div></section>
 </div>
 <div id="cdov"><div id="cdnum"></div><div id="cdpeek">Nicht spicken! 🙈</div></div>
@@ -538,15 +496,15 @@
 <canvas id="confc"></canvas>
 <div id="toast" role="alert"></div>
 <div id="statusbar">
-  <button id="homeBtn" title="Zurueck zum Start">Start</button>
+  <button id="homeBtn" title="Zurück zum Start">Start</button>
   <span class="dot" id="conn"></span><span id="connt">verbinde</span>
   <span id="sbcode" class="mono"></span>
   <button id="muteBtn">🔊</button>
-  <button id="vtag" class="mono">Digilex v3.0</button>
+  <button id="vtag" class="mono">Digilex</button>
 </div>
 <div id="debug" hidden>
   <h3>Debug-Panel</h3>
-  <div class="hint" style="text-align:left; margin:2px 0 8px;">Digilex: Das Epos der VD, Kanton Zuerich</div>
+  <div class="hint" style="text-align:left; margin:2px 0 8px;">Digilex: Das Epos der VD, Kanton Zürich</div>
   <pre id="dbmeta"></pre>
   <h3>Phasenverlauf (neueste zuerst)</h3>
   <pre id="dbtrace"></pre>
@@ -562,9 +520,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
 <script>
 'use strict';
-/* =====================================================================
-   FIREBASE-KONFIGURATION  (databaseURL muss zur Region passen)
-   ===================================================================== */
 const firebaseConfig = {
   apiKey: "AIzaSyDpPPvcNkP8vHiRCyZTg9EwD8lHUO5HEZk",
   authDomain: "digilex-quiz.firebaseapp.com",
@@ -574,147 +529,145 @@ const firebaseConfig = {
   messagingSenderId: "77721487079",
   appId: "1:77721487079:web:ef136b4724e9c1c1120442"
 };
-/* ===================================================================== */
 const APP_VERSION='v3.0 (2026-08-19)';
 const ROOT='sessions';
 const HOST_PASSWORD='olymp2027';
 const TOP_N=10, COUNTDOWN_MS=3000, CALL_TIMEOUT=9000;
-/* ================== QUIZ-DATEN ==================
-   Schema: {id, tier:'core'|'depth'|'fun', type:'single'|'multi'|'truefalse',
-   q, options[], correct:[Indizes ab 0], seconds, explanation, icon, hint, statement} */
+const LENGTHS=[{n:5,label:'Kurzstrecke'},{n:10,label:'Standard'},{n:15,label:'Die volle Odyssee'}];
 const QUESTIONS=[
   { id:"q1", tier:"core", type:"single", seconds:35,
-    q:"Wann treten die neuen digitalen Behoerdenprozesse in Kraft?",
-    options:["Ab dem 1. Januar 2027","Sobald das letzte Faxgeraet im Kanton feierlich beerdigt wurde","Gestern, aber wir haben die Mail im Spam-Ordner uebersehen","Ab dem 1. Juli 2027 gemeinsam mit dem BEKJ"],
+    q:"Wann treten die neuen digitalen Behördenprozesse in Kraft?",
+    options:["Ab dem 1. Januar 2027","Sobald das letzte Faxgerät im Kanton feierlich beerdigt wurde","Gestern, aber wir haben die Mail im Spam-Ordner übersehen","Ab dem 1. Juli 2027 gemeinsam mit dem BEKJ"],
     correct:[0],
-    explanation:"Ab dem 1. Januar 2027 treten die neuen digitalen Behoerdenprozesse in Kraft. Ein wichtiger Schritt zu moderner, durchgaengiger Verwaltungspraxis, ganz ohne feierliche Fax-Bestattung.",
+    explanation:"Ab dem 1. Januar 2027 treten die neuen digitalen Behördenprozesse in Kraft. Ein wichtiger Schritt zu moderner, durchgängiger Verwaltungspraxis, ganz ohne feierliche Fax-Bestattung.",
     icon:"1 von 7, erster Schritt der Odyssee" },
   { id:"q2", tier:"core", type:"multi", seconds:30, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
     q:"Wer ist zur Nutzung der digitalen Dienste verpflichtet?",
-    options:["Verwaltungsbehoerden untereinander","Berufsmaessige Vertretung, zum Beispiel Anwaelte, Treuhaender","Nur auslaendische Unternehmen und Grosskonzerne","Alle, die sich nach 22 Uhr ueber lärmende Nachbarn beschweren wollen"],
+    options:["Verwaltungsbehörden untereinander","Berufsmässige Vertretung, zum Beispiel Anwälte, Treuhänder","Nur ausländische Unternehmen und Grosskonzerne","Alle, die sich nach 22 Uhr über lärmende Nachbarn beschweren wollen"],
     correct:[0,1],
-    explanation:"Verpflichtet sind Verwaltungsbehoerden im Austausch untereinander sowie berufsmaessige Vertretungen wie Anwaeltinnen, Anwaelte oder Treuhaenderinnen. Dort, wo Verfahren regelmaessig und behoerdennah gefuehrt werden.",
-    icon:"2 von 7, der Behoerdenpfad" },
+    explanation:"Verpflichtet sind Verwaltungsbehörden im Austausch untereinander sowie berufsmässige Vertretungen wie Anwältinnen, Anwälte oder Treuhänderinnen. Dort, wo Verfahren regelmässig und behördennah geführt werden.",
+    icon:"2 von 7, der Behördenpfad" },
   { id:"q3", tier:"core", type:"single", seconds:40,
-    q:"Welches Login wird beim Zuerikonto standardmaessig eingesetzt?",
-    options:["SwissID","AGOV, schweizweites Behoerden-Login","Eine beglaubigte ID-Kopie am Schalter","Meine gespeicherte Google- oder Apple-ID"],
+    q:"Welches Login wird beim Zürikonto standardmässig eingesetzt?",
+    options:["SwissID","AGOV, schweizweites Behörden-Login","Eine beglaubigte ID-Kopie am Schalter","Meine gespeicherte Google- oder Apple-ID"],
     correct:[1],
-    explanation:"Beim Zuerikonto wird standardmaessig AGOV eingesetzt, das schweizweite Behoerden-Login. Einheitlicher, sicherer und anschlussfaehig ueber Verwaltungsgrenzen hinweg.",
+    explanation:"Beim Zürikonto wird standardmässig AGOV eingesetzt, das schweizweite Behörden-Login. Einheitlicher, sicherer und anschlussfähig über Verwaltungsgrenzen hinweg.",
     icon:"3 von 7, das Tor zum Zugang" },
   { id:"q4", tier:"core", type:"truefalse", seconds:40,
-    q:"Was passiert, wenn Sie kuenftig ein Gesuch digital einreichen?",
-    statement:"Aussage: Wenn Sie den digitalen Weg waehlen, erhalten Sie die Antwort der Behoerde weiterhin per Post.",
+    q:"Was passiert, wenn Sie künftig ein Gesuch digital einreichen?",
+    statement:"Aussage: Wenn Sie den digitalen Weg wählen, erhalten Sie die Antwort der Behörde weiterhin per Post.",
     options:["Wahr","Falsch"],
     correct:[1],
-    explanation:"Falsch. Wer den digitalen Weg waehlt, erhaelt die Antwort auch digital, medienbruchfrei ueber das Zuerikonto.",
-    icon:"4 von 7, die behoerdliche Antwort" },
+    explanation:"Falsch. Wer den digitalen Weg wählt, erhält die Antwort auch digital, medienbruchfrei über das Zürikonto.",
+    icon:"4 von 7, die behördliche Antwort" },
   { id:"q5", tier:"core", type:"multi", seconds:45, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
-    q:"Welche elektronischen Mittel sind fuer bestimmte sichere Kanaele rechtlich anerkannt?",
+    q:"Welche elektronischen Mittel sind für bestimmte sichere Kanäle rechtlich anerkannt?",
     options:["Eine eingescannte handschriftliche Unterschrift","Eine qualifizierte elektronische Signatur, QES","Das AGOV-Login","Ein digitaler Schwur mit der rechten Hand auf der Computermaus"],
     correct:[1,2],
-    explanation:"Fuer definierte sichere Kanaele sind insbesondere die qualifizierte elektronische Signatur (QES) sowie das AGOV-Login vorgesehen. Der Schwur auf die Maus bleibt ein mythologisches Ritual ohne Rechtswirkung.",
+    explanation:"Für definierte sichere Kanäle sind insbesondere die qualifizierte elektronische Signatur (QES) sowie das AGOV-Login vorgesehen. Der Schwur auf die Maus bleibt ein mythologisches Ritual ohne Rechtswirkung.",
     icon:"5 von 7, das Siegel des Helden" },
   { id:"q6", tier:"core", type:"single", seconds:45,
-    q:"Welche Methode ist ab 2027 fuer die digitale Kommunikation mit den Behoerden nicht zulaessig?",
-    options:["Eine ungeschuetzte E-Mail-Adresse","Das Zuerikonto mit AGOV-Login","Ein sicheres E-Mail-System wie IncaMail oder PrivaSphere mit QES","Die Plattform justitia.swiss fuer strittige Verfahren"],
+    q:"Welche Methode ist ab 2027 für die digitale Kommunikation mit den Behörden nicht zulässig?",
+    options:["Eine ungeschützte E-Mail-Adresse","Das Zürikonto mit AGOV-Login","Ein sicheres E-Mail-System wie IncaMail oder PrivaSphere mit QES","Die Plattform justitia.swiss für strittige Verfahren"],
     correct:[0],
-    explanation:"Eine ungeschuetzte E-Mail-Adresse ist nicht zulaessig. Vorgesehen sind sichere, nachvollziehbare Kanaele wie das Zuerikonto mit AGOV, IncaMail oder PrivaSphere mit QES sowie justitia.swiss.",
+    explanation:"Eine ungeschützte E-Mail-Adresse ist nicht zulässig. Vorgesehen sind sichere, nachvollziehbare Kanäle wie das Zürikonto mit AGOV, IncaMail oder PrivaSphere mit QES sowie justitia.swiss.",
     icon:"6 von 7, der sichere Kanal" },
   { id:"q7", tier:"core", type:"single", seconds:45,
     q:"Wer hat es erfunden?",
     options:["Ricola","Der Kanton","Ein antikes Projektorakel mit WLAN-Anschluss","Eine interdepartementale Heldengruppe auf digitaler Odyssee"],
     correct:[1],
     explanation:"Der Kanton. Der digitale Held erreicht den Projekt-Olymp.",
-    icon:"7 von 7, der Projekt-Olymp" },
+    icon:"7 von 7, der Projekt-Olymp" }
+,
   { id:"q8", tier:"depth", type:"single", seconds:35,
-    q:"Wofuer steht die Abkuerzung AGOV?",
-    options:["Authentifizierung fuer staatliche Online-Dienste","Amtliches Gesuchs- und Online-Verzeichnis","Allgemeine Government-Odyssee-Verwaltung","Automatisiertes Genehmigungs- und Orakel-Verfahren"],
+    q:"Wofür steht die Abkürzung AGOV?",
+    options:["Authentifizierung für staatliche Online-Dienste","Amtliches Gesuchs- und Online-Verzeichnis","Allgemeine Government-Odyssee-Verwaltung","Automatisiertes Genehmigungs- und Orakel-Verfahren"],
     correct:[0],
-    explanation:"AGOV steht fuer Authentifizierung fuer staatliche Online-Dienste, das einheitliche Behoerden-Login der Schweiz von Bund, Kantonen und Gemeinden.",
+    explanation:"AGOV steht für Authentifizierung für staatliche Online-Dienste, das einheitliche Behörden-Login der Schweiz von Bund, Kantonen und Gemeinden.",
     icon:"Vertiefung, AGOV im Detail" },
   { id:"q9", tier:"depth", type:"single", seconds:40,
     q:"Wie meldet man sich bei AGOV an, ganz ohne Passwort?",
-    options:["Mit der App AGOV access oder einem physischen FIDO-Sicherheitsschluessel","Mit einem sechsstelligen PIN auf einer Lochkarte","Mit dem Geburtsdatum und dem Lieblingsgott","Ausschliesslich per Fingerabdruck am Gemeindeschalter"],
+    options:["Mit der App AGOV access oder einem physischen FIDO-Sicherheitsschlüssel","Mit einem sechsstelligen PIN auf einer Lochkarte","Mit dem Geburtsdatum und dem Lieblingsgott","Ausschliesslich per Fingerabdruck am Gemeindeschalter"],
     correct:[0],
-    explanation:"AGOV funktioniert passwortlos, entweder ueber die App AGOV access oder einen FIDO-Sicherheitsschluessel als USB-Stick. Sicherer und bequemer als ein Passwort.",
+    explanation:"AGOV funktioniert passwortlos, entweder über die App AGOV access oder einen FIDO-Sicherheitsschlüssel als USB-Stick. Sicherer und bequemer als ein Passwort.",
     icon:"Vertiefung, passwortlos anmelden" },
   { id:"q10", tier:"depth", type:"multi", seconds:40, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
-    q:"Welche beiden Zustellplattformen sind aktuell fuer rechtskonforme E-Mail-Eingaben anerkannt?",
-    options:["IncaMail","PrivaSphere","OlympMail Express","Das gute alte Fax mit Lesebestaetigung"],
+    q:"Welche beiden Zustellplattformen sind aktuell für rechtskonforme E-Mail-Eingaben anerkannt?",
+    options:["IncaMail","PrivaSphere","OlympMail Express","Das gute alte Fax mit Lesebestätigung"],
     correct:[0,1],
-    explanation:"Der Kanton Zuerich nennt ausdruecklich nur IncaMail und PrivaSphere als zulaessige Zustellplattformen, zusaetzlich braucht es eine QES.",
+    explanation:"Der Kanton Zürich nennt ausdrücklich nur IncaMail und PrivaSphere als zulässige Zustellplattformen, zusätzlich braucht es eine QES.",
     icon:"Vertiefung, sichere Zustellung" },
   { id:"q11", tier:"depth", type:"single", seconds:35,
     q:"Wer bietet den sicheren Zustelldienst IncaMail an?",
-    options:["Die Schweizerische Post","Der Goetterbote Hermes persoenlich","Die Bundeskanzlei","Eine private Taubenpost-Genossenschaft"],
+    options:["Die Schweizerische Post","Der Götterbote Hermes persönlich","Die Bundeskanzlei","Eine private Taubenpost-Genossenschaft"],
     correct:[0],
     explanation:"IncaMail ist ein Dienst der Schweizerischen Post und vom EJPD als sichere Zustellplattform anerkannt.",
     icon:"Vertiefung, IncaMail" },
   { id:"q12", tier:"depth", type:"single", seconds:40,
     q:"Womit ist eine qualifizierte elektronische Signatur (QES) rechtlich gleichgestellt?",
-    options:["Mit der eigenhaendigen handschriftlichen Unterschrift","Mit einem amtlichen Stempel in dreifacher Ausfuehrung","Mit einem notariell beglaubigten Handschlag","Mit einem Siegel aus echtem Olymp-Wachs"],
+    options:["Mit der eigenhändigen handschriftlichen Unterschrift","Mit einem amtlichen Stempel in dreifacher Ausführung","Mit einem notariell beglaubigten Handschlag","Mit einem Siegel aus echtem Olymp-Wachs"],
     correct:[0],
-    explanation:"Die QES ist gemaess Artikel 14 Absatz 2bis des Obligationenrechts der eigenhaendigen Unterschrift gleichgestellt, geregelt im Bundesgesetz ueber die elektronische Signatur (ZertES).",
+    explanation:"Die QES ist gemäss Artikel 14 Absatz 2bis des Obligationenrechts der eigenhändigen Unterschrift gleichgestellt, geregelt im Bundesgesetz über die elektronische Signatur (ZertES).",
     icon:"Vertiefung, QES" },
   { id:"q13", tier:"depth", type:"single", seconds:30,
-    q:"Was kostet das Zuerikonto fuer Einwohnende und Unternehmen?",
-    options:["Nichts, es ist kostenlos","Eine jaehrliche Olymp-Gebuehr von 27 Franken","Einen Obolus pro eingereichtem Gesuch","Nur die Mehrwertsteuer auf digitale Lorbeeren"],
+    q:"Was kostet das Zürikonto für Einwohnende und Unternehmen?",
+    options:["Nichts, es ist kostenlos","Eine jährliche Olymp-Gebühr von 27 Franken","Einen Obolus pro eingereichtem Gesuch","Nur die Mehrwertsteuer auf digitale Lorbeeren"],
     correct:[0],
-    explanation:"Das Zuerikonto ist der kostenlose persoenliche Zugang zu den Online-Dienstleistungen des Kantons Zuerich.",
-    icon:"Vertiefung, Zuerikonto" },
+    explanation:"Das Zürikonto ist der kostenlose persönliche Zugang zu den Online-Dienstleistungen des Kantons Zürich.",
+    icon:"Vertiefung, Zürikonto" },
   { id:"q14", tier:"depth", type:"single", seconds:40,
-    q:"Ueber welche Plattform laeuft kuenftig der elektronische Rechtsverkehr in der Schweizer Justiz?",
+    q:"Über welche Plattform läuft künftig der elektronische Rechtsverkehr in der Schweizer Justiz?",
     options:["justitia.swiss","olymp.gericht.ch","Die zentrale Fax-Zentrale in Bern","paragraph.ch"],
     correct:[0],
-    explanation:"justitia.swiss ist die zentrale Justizplattform fuer den elektronischen Rechtsverkehr. Gesetzliche Grundlage ist das BEKJ, dessen restliche Bestimmungen am 1. Juli 2027 in Kraft treten.",
+    explanation:"justitia.swiss ist die zentrale Justizplattform für den elektronischen Rechtsverkehr. Gesetzliche Grundlage ist das BEKJ, dessen restliche Bestimmungen am 1. Juli 2027 in Kraft treten.",
     icon:"Vertiefung, justitia.swiss" },
   { id:"q15", tier:"depth", type:"multi", seconds:35, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
-    q:"Wie kann Sie das Zuerikonto ueber Aenderungen an Ihren Vorgaengen benachrichtigen?",
-    options:["Per E-Mail","Per SMS","Per Brieftaube vom Grossmuenster","Per Donnergrollen des Zeus"],
+    q:"Wie kann Sie das Zürikonto über Änderungen an Ihren Vorgängen benachrichtigen?",
+    options:["Per E-Mail","Per SMS","Per Brieftaube vom Grossmünster","Per Donnergrollen des Zeus"],
     correct:[0,1],
-    explanation:"Im Zuerikonto legen Sie selbst fest, ob Sie per SMS oder E-Mail benachrichtigt werden moechten.",
+    explanation:"Im Zürikonto legen Sie selbst fest, ob Sie per SMS oder E-Mail benachrichtigt werden möchten.",
     icon:"Vertiefung, Benachrichtigung" },
   { id:"f1", tier:"fun", type:"single", seconds:25,
-    q:"Ihr Gesuch ist in Sekunden bestaetigt. Wie feiern Sie im Projekt-Olymp?",
-    options:["Ein stilles Nicken Richtung Bildschirm, dann der naechste Vorgang","Eine Amphore Most koepfen und die Kolleginnen wecken","Lorbeerkranz aufsetzen und dramatisch aus dem Grossraumbuero schreiten","Zeus per Blitz eine Lesebestaetigung schicken"],
+    q:"Ihr Gesuch ist in Sekunden bestätigt. Wie feiern Sie im Projekt-Olymp?",
+    options:["Ein stilles Nicken Richtung Bildschirm, dann der nächste Vorgang","Eine Amphore Most köpfen und die Kolleginnen wecken","Lorbeerkranz aufsetzen und dramatisch aus dem Grossraumbüro schreiten","Zeus per Blitz eine Lesebestätigung schicken"],
     correct:[0],
     explanation:"Ein stilles Nicken. So feiert der wahre Verwaltungsheld.",
     icon:"Fun, Olymp-Etikette" },
   { id:"f2", tier:"fun", type:"single", seconds:25,
     q:"Welches Wesen bewacht laut Legende den Aktenberg der Verwaltung?",
-    options:["Der dreikoepfige Formularberos","Ein Greif mit Ablagekorb","Die Sphinx vom Amt fuer Fristen","Ein sehr mueder Praktikant"],
+    options:["Der dreiköpfige Formularberos","Ein Greif mit Ablagekorb","Die Sphinx vom Amt für Fristen","Ein sehr müder Praktikant"],
     correct:[0],
-    explanation:"Der dreikoepfige Formularberos. Jeder Kopf will ein anderes Beiblatt.",
+    explanation:"Der dreiköpfige Formularberos. Jeder Kopf will ein anderes Beiblatt.",
     icon:"Fun, Sagenwesen" },
   { id:"f3", tier:"fun", type:"truefalse", seconds:20,
     q:"Frage aus der Sagenwelt.",
-    statement:"Aussage: Auf dem Projekt-Olymp gibt es ein eigenes WLAN, aber der Empfang ist goettlich schlecht.",
+    statement:"Aussage: Auf dem Projekt-Olymp gibt es ein eigenes WLAN, aber der Empfang ist göttlich schlecht.",
     options:["Wahr, so will es das Orakel","Falsch, der Olymp nutzt Glasfaser"],
     correct:[0],
-    explanation:"Wahr, so will es das Orakel. Selbst Goetter warten manchmal auf den Ladebalken.",
+    explanation:"Wahr, so will es das Orakel. Selbst Götter warten manchmal auf den Ladebalken.",
     icon:"Fun, Olymp-WLAN" }
 ];
 const PODIUM=[
   { title:"Athena Aktenklar", text:"Hat den Paragrafen-Nebel geteilt und steigt verdient in den Projekt-Olymp auf." },
-  { title:"Hermes Haekchenschnell", text:"War schneller als der Dienstweg erlaubt und traf mit goettlicher Sicherheit." },
-  { title:"Herakles Formularis", text:"Hat den Formularberg mit Wuerde, Wissen und leichtem Schulterzucken erklommen." }
+  { title:"Hermes Häkchenschnell", text:"War schneller als der Dienstweg erlaubt und traf mit göttlicher Sicherheit." },
+  { title:"Herakles Formularis", text:"Hat den Formularberg mit Würde, Wissen und leichtem Schulterzucken erklommen." }
 ];
 const HEROES=[
-  { title:"Orakel der Aktenlage", text:"Vielleicht nicht der Olymp, aber Ihre Antworten hatten verdaechtig oft recht." },
+  { title:"Orakel der Aktenlage", text:"Vielleicht nicht der Olymp, aber Ihre Antworten hatten verdächtig oft recht." },
   { title:"Hermes im Halbschritt", text:"Blitzschnell unterwegs, gelegentlich war der Dienstweg noch nicht ganz ausgeschildert." },
-  { title:"Formular-Fluesterer:in", text:"Sie klicken nicht hektisch, Sie verhandeln mit der Antwort, bis sie sich ergibt." },
-  { title:"Paragrafen-Pfadfinder:in", text:"Wird der Weg unklar, suchen Sie nicht die Abkuerzung, sondern die Rechtsgrundlage." },
-  { title:"Dienstweg-Dompteur:in", text:"Sie haben den Dienstweg gezaehmt. Er hat kurz gezuckt, dann nachgegeben." },
-  { title:"Hueter:in des Haekchens", text:"Ein kleines Haekchen entscheidet manchmal ein grosses Verwaltungsabenteuer." },
+  { title:"Formular-Flüsterer:in", text:"Sie klicken nicht hektisch, Sie verhandeln mit der Antwort, bis sie sich ergibt." },
+  { title:"Paragrafen-Pfadfinder:in", text:"Wird der Weg unklar, suchen Sie nicht die Abkürzung, sondern die Rechtsgrundlage." },
+  { title:"Dienstweg-Dompteur:in", text:"Sie haben den Dienstweg gezähmt. Er hat kurz gezuckt, dann nachgegeben." },
+  { title:"Hüter:in des Häkchens", text:"Ein kleines Häkchen entscheidet manchmal ein grosses Verwaltungsabenteuer." },
   { title:"Bezwinger:in des Aktennebels", text:"Erst Nebel, dann Durchblick. Eine klassische Heldenentwicklung." },
-  { title:"Kanal-Kompass", text:"Sie spuerten, welcher Kanal traegt und welcher Richtung Fax-Museum fuehrt." },
-  { title:"Projekt-Pegasus", text:"Nicht laut, nicht wild, aber zuverlaessig mit Schwung Richtung Ziel." },
+  { title:"Kanal-Kompass", text:"Sie spürten, welcher Kanal trägt und welcher Richtung Fax-Museum führt." },
+  { title:"Projekt-Pegasus", text:"Nicht laut, nicht wild, aber zuverlässig mit Schwung Richtung Ziel." },
   { title:"Argonaut:in der Umsetzung", text:"Sie halten Kurs und wissen: kein Heldenepos entsteht allein." },
-  { title:"Sphinx der Schnittstelle", text:"Raetselhaft, aber wenn es zaehlt, kommt die richtige Antwort aus dem Nichts." },
-  { title:"Odyssee-Offizier:in", text:"Sie haben die Reise vollstaendig absolviert. Das verdient ein digitales Lorbeerblatt." }
+  { title:"Sphinx der Schnittstelle", text:"Rätselhaft, aber wenn es zählt, kommt die richtige Antwort aus dem Nichts." },
+  { title:"Odyssee-Offizier:in", text:"Sie haben die Reise vollständig absolviert. Das verdient ein digitales Lorbeerblatt." }
 ];
 const EMOJIS=['🦉','⚡','🏛️','📜','⚖️','🔱','🏺','🎭','🌿','🦅','🐎','🏆','☀️','🔥','🗝️','🛡️','👑','🎯','🧭','⭐','🌊','🕊️','🎺','🍇'];
-const BOTN=['Botthena','Hermes 2.0','Herakles GmbH','Orakel-Otto','Zeus.exe','Pallas Prozess','Apollo Akten','Nike Notiz','Ares Antrag','Demeter Digital','Hera Hotline','Poseidon PDF','Kronos Konto','Iris Inbox','Hades Helpdesk','Athena Ausweis','Hermes Haekchen','Gaia Gesuch','Helios Login','Momos Meldung'];
+const BOTN=['Botthena','Hermes 2.0','Herakles GmbH','Orakel-Otto','Zeus.exe','Pallas Prozess','Apollo Akten','Nike Notiz','Ares Antrag','Demeter Digital','Hera Hotline','Poseidon PDF','Kronos Konto','Iris Inbox','Hades Helpdesk','Athena Ausweis','Hermes Häkchen','Gaia Gesuch','Helios Login','Momos Meldung'];
 const BOTKEYS={b:5,x:10,q:15,t:20};
 const SHAPES=['▲','◆','●','■'];
 const QUIPS={
@@ -723,79 +676,78 @@ const QUIPS={
     '{n} war schneller, als der Dienstweg erlaubt. {t}s.',
     'Erst durch die Schranke: {n}. Jahreskarte Richtung Erledigt.',
     '{n} nahm die Expresslinie. Keine Phasengates, {t}s.',
-    'Signal gruen, Hirn gruener. {n} in {t}s.',
+    'Signal grün, Hirn grüner. {n} in {t}s.',
     'Ticket entwertet in {t}s. {n} hatte den Vorgang vorbereitet.',
     'Das Orakel notiert: {n} zog die Antwort direkt aus der Ablage Bereit. {t}s.'],
   streak:[
     '{n} auf einer {k}er-Serie. Angeblich nachhaltiges Tempo.',
-    '{k} in Folge. Jemand pruefe {n} auf ein WIP-Limit.',
-    'Unaufhaltsam, {n}. Die Retro wird kurz. {k} am Stueck.',
-    '{k} in Folge fuer {n}. Fist of five vom ganzen Abteil.',
-    '{n} macht es {k}. Die Definition of Done wird stetig erfuellt.',
-    'Die {n}-Expresslinie haelt nicht. {k} und weiter.'],
+    '{k} in Folge. Jemand prüfe {n} auf ein WIP-Limit.',
+    'Unaufhaltsam, {n}. Die Retro wird kurz. {k} am Stück.',
+    '{k} in Folge für {n}. Fist of five vom ganzen Abteil.',
+    '{n} macht es {k}. Die Definition of Done wird stetig erfüllt.',
+    'Die {n}-Expresslinie hält nicht. {k} und weiter.'],
   overtake:[
-    '{n} zieht innen an {o} vorbei. Vorsicht mit der Luecke, {o}.',
-    '{n} klettert {k} Plaetze. Nennen wir es eine Planungsanpassung.',
+    '{n} zieht innen an {o} vorbei. Vorsicht mit der Lücke, {o}.',
+    '{n} klettert {k} Plätze. Nennen wir es eine Planungsanpassung.',
     'Signalwechsel! {n} wurde an die Spitze des Backlogs priorisiert.',
-    '{n} ueberholt {o}: kuerzester Vorgang zuerst.',
+    '{n} überholt {o}: kürzester Vorgang zuerst.',
     'Rebalancing: {n} nimmt {o} Arbeit und Punkte ab.',
-    'Ueberholmanoever! {n} um {k} hoch. {o}, vielleicht ein Spike.'],
+    'Überholmanöver! {n} um {k} hoch. {o}, vielleicht ein Spike.'],
   allRight:[
     'Volle Punktzahl im ganzen Abteil. Eine ausgerichtete Truppe.',
     'Alle richtig. Die Projektleitung weint vor Freude.',
     'Ein sauberer Durchmarsch. So klingt Kadenz.',
     'Alle korrekt. Jemand hat heimlich das Merkblatt gelesen.'],
   allWrong:[
-    'Niemand? Gut. Problemloesungs-Workshop bei der naechsten Retrospektive.',
+    'Niemand? Gut. Problemlösungs-Workshop bei der nächsten Retrospektive.',
     'Ein sauberer Fehlgriff im Kollektiv. Ab in die Spalte Analyse.',
     'Nicht ein richtiges Ticket. Risikostatus: von allen akzeptiert.',
-    'Einstimmig daneben. Schoene Ausrichtung, falsches Ziel.'],
+    'Einstimmig daneben. Schöne Ausrichtung, falsches Ziel.'],
   generic:[
-    'Das Orakel hat schon vieles gesehen. Meist unfertige Vorgaenge.',
-    'Naechste Etappe naht. Annahmen bitte im Abteil behalten.',
+    'Das Orakel hat schon vieles gesehen. Meist unfertige Vorgänge.',
+    'Nächste Etappe naht. Annahmen bitte im Abteil behalten.',
     'Das Orakel notiert: schnell antworten ist nicht dasselbe wie richtig.',
     'Irgendwo hat sich gerade ein Portfolio neu ausbalanciert.'],
   photo:[
     'Fotofinish an der Spitze: {a} und {b} trennen nur {d} Punkte.',
-    'Der Abstand vorne betraegt {d} Punkte. Vorsicht, {b}.',
+    'Der Abstand vorne beträgt {d} Punkte. Vorsicht, {b}.',
     'Die ersten beiden nur {d} Punkte auseinander. Die Kameras laufen.'],
   lastGasp:[
     '{n} entwertete das Ticket mit {t}s Rest. Ausgabe auf letzte Nachfrage.',
-    'Tueren schliessen, und {n} rutscht mit {t}s hinein.',
+    'Türen schliessen, und {n} rutscht mit {t}s hinein.',
     '{t}s auf der Uhr und {n} war noch am Perron. Respekt.'],
   lastStop:[
     'Doppelte Punkte kassiert! {n} verbucht +{p} an der letzten Etappe.',
     'Letzte Etappe, doppelter Fahrpreis. {n} sammelt satte +{p}.',
     'Der Doppelhalt liefert. {n} steckt +{p} ein.']
 };
-const V_RIGHT=['Ticket akzeptiert. Hypothese bestaetigt.','Richtig, weiter so.','Auf den Schienen geblieben.','Gruenes Signal, weiterfahren.','Ziel erreicht, Punkte verbucht.','Geradewegs durch die Validierung.'];
-const V_PARTIAL=['Teilweise richtig, ein Haekchen fehlt.','Halb im Ziel. Ein Teil sass.','Ein Teil der Antwort war korrekt.'];
-const V_WRONG=['Hypothese nicht bestaetigt. Neu ansetzen.','Vielleicht das naechste Mal ein Spike.','Zurueck in die Spalte Analyse.','Nicht durch die Leitplanken gedeckt.','Eine mutige Hypothese. Widerlegt.'];
-const V_NONE=['Kein Ticket entwertet. Die Reise wartet auf niemanden.','Keine Antwort erfasst. Ein akzeptiertes Risiko.','Die Tueren schlossen vor Ihrem Ticket.','Schweigen ist kein zugelassener Antworttyp.'];
-const F_PLACE=['MVP: wertvollste:r Passagier:in. Hypothese bestaetigt.','So nah am Gold. Eine sehr starke Hypothese.','Bronze, ein solider Unterbau.','Jede Reise braucht jedes Abteil. Gut gefahren.'];
+const V_RIGHT=['Ticket akzeptiert. Hypothese bestätigt.','Richtig, weiter so.','Auf den Schienen geblieben.','Grünes Signal, weiterfahren.','Ziel erreicht, Punkte verbucht.','Geradewegs durch die Validierung.'];
+const V_PARTIAL=['Teilweise richtig, ein Häkchen fehlt.','Halb im Ziel. Ein Teil sass.','Ein Teil der Antwort war korrekt.'];
+const V_WRONG=['Hypothese nicht bestätigt. Neu ansetzen.','Vielleicht das nächste Mal ein Spike.','Zurück in die Spalte Analyse.','Nicht durch die Leitplanken gedeckt.','Eine mutige Hypothese. Widerlegt.'];
+const V_NONE=['Kein Ticket entwertet. Die Reise wartet auf niemanden.','Keine Antwort erfasst. Ein akzeptiertes Risiko.','Die Türen schlossen vor Ihrem Ticket.','Schweigen ist kein zugelassener Antworttyp.'];
+const F_PLACE=['MVP: wertvollste:r Passagier:in. Hypothese bestätigt.','So nah am Gold. Eine sehr starke Hypothese.','Bronze, ein solider Unterbau.','Jede Reise braucht jedes Abteil. Gut gefahren.'];
 const ANNOUNCE=[
-  'Der 09:15 nach Business Agility faehrt planmaessig.',
+  'Der 09:15 nach Business Agility fährt planmässig.',
   'Bitte halten Sie Ihr WIP jederzeit innerhalb der Limits.',
-  'Achten Sie auf die Luecke zwischen zugesagt und offen.',
-  'Fundbuero: ein unfinanziertes Projekt, zuletzt beim Kostenstellen-Gleis gesehen.',
-  'Diese Station fuehrt eine strenge Definition of Done.',
-  'Bitte melden Sie unbeaufsichtigte Abhaengigkeiten dem Personal.',
-  'Zuege Richtung Erledigt fahren oefter, wenn die Batches klein sind.',
-  'Fuer Ihre Sicherheit bitte alle persoenlichen Risiken vor der Abfahrt einordnen.'
+  'Achten Sie auf die Lücke zwischen zugesagt und offen.',
+  'Fundbüro: ein unfinanziertes Projekt, zuletzt beim Kostenstellen-Gleis gesehen.',
+  'Diese Station führt eine strenge Definition of Done.',
+  'Bitte melden Sie unbeaufsichtigte Abhängigkeiten dem Personal.',
+  'Züge Richtung Erledigt fahren öfter, wenn die Batches klein sind.',
+  'Für Ihre Sicherheit bitte alle persönlichen Risiken vor der Abfahrt einordnen.'
 ];
 const INSIGHTS=[
-  'AGOV steht fuer Authentifizierung fuer staatliche Online-Dienste.',
-  'AGOV funktioniert passwortlos, per App AGOV access oder FIDO-Sicherheitsschluessel.',
-  'Das Zuerikonto ist kostenlos und nutzt AGOV als Login.',
+  'AGOV steht für Authentifizierung für staatliche Online-Dienste.',
+  'AGOV funktioniert passwortlos, per App AGOV access oder FIDO-Sicherheitsschlüssel.',
+  'Das Zürikonto ist kostenlos und nutzt AGOV als Login.',
   'Nur IncaMail und PrivaSphere sind als sichere Zustellplattformen anerkannt.',
-  'Die QES ist der eigenhaendigen Unterschrift rechtlich gleichgestellt (Art. 14 Abs. 2bis OR).',
+  'Die QES ist der eigenhändigen Unterschrift rechtlich gleichgestellt (Art. 14 Abs. 2bis OR).',
   'IncaMail ist ein Dienst der Schweizerischen Post, anerkannt vom EJPD.',
-  'justitia.swiss ist die zentrale Plattform fuer den elektronischen Rechtsverkehr.',
+  'justitia.swiss ist die zentrale Plattform für den elektronischen Rechtsverkehr.',
   'Das BEKJ tritt in seinen restlichen Teilen am 1. Juli 2027 in Kraft.',
-  'Das Zuerikonto benachrichtigt wahlweise per SMS oder E-Mail.',
-  'Ungeschuetzte E-Mail ist ab 2027 fuer Behoerdenkommunikation nicht zulaessig.'
+  'Das Zürikonto benachrichtigt wahlweise per SMS oder E-Mail.',
+  'Ungeschützte E-Mail ist ab 2027 für Behördenkommunikation nicht zulässig.'
 ];
-/* ---------------- tiny utils ---------------- */
 const $=s=>document.querySelector(s);
 function el(tag,cls,txt){const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); const t=a[i];a[i]=a[j];a[j]=t;} return a;}
@@ -803,7 +755,6 @@ function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
 const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 function vib(p){try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){}}
 function vibOK(){vib([40,60,40]);}
-/* ---------------- error log + toast ---------------- */
 const ERR=[];
 function logErr(ctx,e){
   const m=(e&&(e.message||e.code))||String(e);
@@ -845,11 +796,10 @@ async function busy(btn,fn){
   try{await fn();}catch(e){}
   finally{btn.disabled=false; btn.classList.remove('busy');}
 }
-/* ---------------- pool validation ---------------- */
 function validatePools(){
   let bad=0;
   const seen=new Set();
-  if(!Array.isArray(QUESTIONS)||QUESTIONS.length<15){logErr('E18 pools','Fragenpool zu klein'); bad++;}
+  if(!Array.isArray(QUESTIONS)||QUESTIONS.length<3){logErr('E18 pools','Fragenpool zu klein'); bad++;}
   QUESTIONS.forEach((x,i)=>{
     const tag='Frage '+i+' ('+(x&&x.id||'?')+')';
     if(!x||typeof x.q!=='string'){logErr('E18 pools',tag+' fehlerhaft'); bad++; return;}
@@ -861,13 +811,9 @@ function validatePools(){
     if(!(x.seconds>=5&&x.seconds<=300)){logErr('E18 pools',tag+' seconds'); bad++;}
     if(['single','multi','truefalse'].indexOf(x.type)<0){logErr('E18 pools',tag+' type'); bad++;}
   });
-  const nCore=QUESTIONS.filter(q=>q.tier==='core').length;
-  const nDepth=QUESTIONS.filter(q=>q.tier==='depth').length;
-  const nFun=QUESTIONS.filter(q=>q.tier==='fun').length;
-  if(bad===0)console.info('[Digilex] Pool OK: '+QUESTIONS.length+' Fragen ('+nCore+' core, '+nDepth+' depth, '+nFun+' fun).');
-  else toast('Fehler E18: Fragenpool-Pruefung fehlgeschlagen ('+bad+'). Version-Tag antippen.');
+  if(bad===0)console.info('[Digilex] Pool OK: '+QUESTIONS.length+' Fragen.');
+  else toast('Fehler E18: Fragenpool-Prüfung fehlgeschlagen ('+bad+'). Version-Tag antippen.');
 }
-/* ---------------- audio (Web Audio synth) ---------------- */
 let AC=null, MASTER=null, MUTED=false;
 function setMute(m){
   MUTED=!!m;
@@ -930,7 +876,6 @@ const SFX={
     else{tone(196,0.5,'sawtooth',0.09,0,140); nz(0.3,0.06,0.05,300);}
   }
 };
-/* ---------------- state ---------------- */
 const S={role:null,code:null,pid:null,name:'',emoji:'🦉',game:null,off:0,offKnown:false,everConn:false,
   screen:'',phaseKey:'',revealed:{},revealRetry:{},botTimers:[],builtQ:-1,builtQP:-1,goPlayed:{},
   localSel:[],localSubmitted:false,optBtns:[],earlyT:{},qrDone:false,lastQuip:{},raf:0,trace:[],
@@ -940,25 +885,23 @@ let db=null;
 const TS=()=>firebase.database.ServerValue.TIMESTAMP;
 function now(){return Date.now()+S.off;}
 function gref(){return db.ref(ROOT+'/'+S.code);}
-/* ---------------- boot / firebase ---------------- */
-function showSetup(msg){const b=$('#setupBanner'); b.textContent='SETUP NOETIG: '+msg; b.style.display='block'; logErr('E03 setup',msg);}
+function showSetup(msg){const b=$('#setupBanner'); b.textContent='SETUP NÖTIG: '+msg; b.style.display='block'; logErr('E03 setup',msg);}
 function setConn(ok){S.everConn=S.everConn||ok;
   $('#conn').className='dot'+(ok?' on':''); $('#connt').textContent=ok?'live':'offline';}
 function initFB(){
   try{
-    if(typeof firebase==='undefined'){showSetup('Firebase SDK nicht geladen. Internetverbindung pruefen und Seite neu laden.'); return false;}
+    if(typeof firebase==='undefined'){showSetup('Firebase SDK nicht geladen. Internetverbindung prüfen und Seite neu laden.'); return false;}
     if(!firebaseConfig.databaseURL){showSetup('firebaseConfig.databaseURL fehlt.'); return false;}
     firebase.initializeApp(firebaseConfig);
     db=firebase.database();
     db.ref('.info/serverTimeOffset').on('value',s=>{S.off=s.val()||0; S.offKnown=true;});
     db.ref('.info/connected').on('value',s=>setConn(!!s.val()));
     setTimeout(()=>{if(!S.everConn){
-      toast('Fehler E02: keine Firebase-Verbindung nach 9s. databaseURL und Regeln pruefen.');
+      toast('Fehler E02: keine Firebase-Verbindung nach 9s. databaseURL und Regeln prüfen.');
       logErr('E02 connect','keine Verbindung innert 9s');}},CALL_TIMEOUT);
     return true;
   }catch(e){logErr('E01 init',e); showSetup('Firebase Start fehlgeschlagen: '+(e.message||e)); return false;}
 }
-/* ---------------- navigation ---------------- */
 function go(id){
   if(S.screen===id)return;
   document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));
@@ -1006,7 +949,6 @@ function leave(){
   try{sessionStorage.removeItem('dl_sess');}catch(e){}
   location.href=location.origin+location.pathname;
 }
-/* ---------------- deck helpers ---------------- */
 function makeDeck(n){
   const idxByTier=t=>QUESTIONS.map((q,i)=>({q,i})).filter(o=>o.q.tier===t).map(o=>o.i);
   const core=idxByTier('core'), depth=idxByTier('depth'), fun=idxByTier('fun');
@@ -1045,9 +987,9 @@ function checkDeck(g){
       const optN=okP?QUESTIONS[d.p].options.length:0;
       const okO=okP&&Array.isArray(d.o)&&d.o.length===optN&&
         d.o.slice().sort((a,b)=>a-b).every((v,k)=>v===k);
-      if(!okP||!okO){bad++; logErr('E24 deck','Eintrag '+ix+' ungueltig');}
+      if(!okP||!okO){bad++; logErr('E24 deck','Eintrag '+ix+' ungültig');}
     });
-    if(bad)toast('Fehler E24: Deck-Integritaet fehlgeschlagen. Host sollte neu starten.');
+    if(bad)toast('Fehler E24: Deck-Integrität fehlgeschlagen. Host sollte neu starten.');
   }catch(e){logErr('E24 deck',e);}
 }
 function playersArr(g){
@@ -1056,7 +998,6 @@ function playersArr(g){
   a.sort((x,y)=>(y.score||0)-(x.score||0)||(x.joinedAt||0)-(y.joinedAt||0)||(x.id<y.id?-1:1));
   return a;
 }
-/* ---------------- scoring ---------------- */
 function scoreRaw(dq,sel,elapsedMs){
   const correctSet=new Set(dq.correctDisplay);
   const hasWrong=sel.some(x=>!correctSet.has(x));
@@ -1072,14 +1013,13 @@ function scoreRaw(dq,sel,elapsedMs){
   }
   return {full,partial,points};
 }
-/* ---------------- host: create / lobby / bots ---------------- */
 const CODEA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function genCode(){let c=''; for(let i=0;i<4;i++)c+=CODEA[Math.floor(Math.random()*CODEA.length)]; return c;}
 async function createGame(){
   ensureAudio();
   for(let t=0;t<5;t++){
     const code=genCode();
-    const ex=await fb('E04 Code pruefen',db.ref(ROOT+'/'+code+'/createdAt').get());
+    const ex=await fb('E04 Code prüfen',db.ref(ROOT+'/'+code+'/createdAt').get());
     if(ex.exists())continue;
     await fb('E04 Spiel erstellen',db.ref(ROOT+'/'+code).set(
       {createdAt:TS(),version:APP_VERSION,pickN:S.lenN,phase:'lobby',qIndex:-1}));
@@ -1121,7 +1061,6 @@ function scheduleBots(g){
     S.botTimers.push(t);
   }
 }
-/* ---------------- player: join ---------------- */
 let curEmoji='🦉';
 async function joinGame(){
   ensureAudio();
@@ -1129,7 +1068,7 @@ async function joinGame(){
   const name=($('#inName').value.trim()||'Passagier:in').slice(0,16);
   if(code.length!==4){toast('Bitte den vierstelligen Spielcode eingeben.'); return;}
   const snap=await fb('E05 Spiel finden',db.ref(ROOT+'/'+code+'/createdAt').get());
-  if(!snap.exists()){toast('Kein Spiel unter Code '+code+'. Code beim Host pruefen.'); return;}
+  if(!snap.exists()){toast('Kein Spiel unter Code '+code+'. Code beim Host prüfen.'); return;}
   S.role='player'; S.code=code; S.name=name; S.emoji=curEmoji;
   let pid=null; try{pid=sessionStorage.getItem('dl_pid_'+code);}catch(e){stWarn(e);}
   if(!pid){pid='p'+Math.random().toString(36).slice(2,10);
@@ -1143,7 +1082,6 @@ async function joinGame(){
   me.onDisconnect().update({online:false});
   saveSess(); attach(); vib([20]);
 }
-/* ---------------- attach + resume ---------------- */
 function attach(){
   $('#sbcode').textContent=S.code?('· '+S.code):'';
   gref().on('value',snap=>{
@@ -1174,7 +1112,6 @@ async function resumeOrLand(){
   }
   go('s-landing');
 }
-/* ---------------- game control (host) ---------------- */
 async function startQuestion(i){
   const g=S.game; if(!g)return;
   const upd={phase:'question',qIndex:i,questionStartAt:TS(),quip:null};
@@ -1229,13 +1166,13 @@ async function hostReveal(){
     }
     upd.phase='reveal';
     upd.quip=pickQuip(res,g,dq);
-    await fb('E11 aufloesen',gref().update(upd));
+    await fb('E11 auflösen',gref().update(upd));
   }catch(e){
     S.revealed[i]=false;
     logErr('E11 reveal',e);
     if(!S.revealRetry[i]){
       S.revealRetry[i]=true;
-      toast('Fehler E11: Aufloesung fehlgeschlagen. Automatischer Neuversuch.');
+      toast('Fehler E11: Auflösung fehlgeschlagen. Automatischer Neuversuch.');
       setTimeout(()=>hostReveal(),1200);
     }
   }
@@ -1294,7 +1231,6 @@ function pickQuip(res,g,dq){
   }
   return pick('generic');
 }
-/* ---------------- render dispatch ---------------- */
 function render(){
   const g=S.game; if(!g)return;
   try{
@@ -1308,7 +1244,7 @@ function render(){
     logErr('E23 render',((e&&e.message)||e)+' at '+k);
     if(S.lastRenderErr!==k){
       S.lastRenderErr=k;
-      toast('Fehler E23: Bildschirm-Update bei '+k+'. Erholung beim naechsten Update.');
+      toast('Fehler E23: Bildschirm-Update bei '+k+'. Erholung beim nächsten Update.');
     }
   }
   renderDebug();
@@ -1357,7 +1293,6 @@ function onEnter(g,ph){
   if(ph==='board')SFX.swish();
   if(ph==='final'){ if(S.role==='host')runPodium(g); else runPlayerFinal(g); }
 }
-/* ----- host rendering ----- */
 function renderHost(g,ph,entered){
   if(ph==='lobby'){
     go('s-lobby');
@@ -1368,7 +1303,7 @@ function renderHost(g,ph,entered){
       const url=location.origin+location.pathname+'?join='+S.code;
       const a=$('#joinlink'); a.href=url; a.textContent=url;
       try{new QRCode($('#qr'),{text:url,width:224,height:224,correctLevel:QRCode.CorrectLevel.M});}
-      catch(e){logErr('E17 qr',e); $('#qr').textContent='QR nicht verfuegbar. Link unten nutzen.';}
+      catch(e){logErr('E17 qr',e); $('#qr').textContent='QR nicht verfügbar. Link unten nutzen.';}
     }
     const arr=playersArr(g).sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
     const tr=$('#train'); const prevN=tr.childElementCount;
@@ -1392,7 +1327,7 @@ function renderHost(g,ph,entered){
         if(ix<g.qIndex)dot.className='done'; if(ix===g.qIndex)dot.className='cur'; rt.appendChild(dot);});
       $('#stopct').textContent='Etappe '+(g.qIndex+1)+' von '+g.deck.length;
       $('#qhText').textContent=dq.text;
-      $('#qhState').textContent=dq.statement||(dq.type==='multi'?(dq.hint||'Mehrfachauswahl moeglich.'):'');
+      $('#qhState').textContent=dq.statement||(dq.type==='multi'?(dq.hint||'Mehrfachauswahl möglich.'):'');
       const box=$('#qhOpts'); box.textContent=''; box.classList.add('pre');
       dq.opts.forEach((o,ix)=>{const d=el('div','opt i'+ix);
         d.appendChild(el('span','sh',SHAPES[ix])); d.appendChild(el('span','otx',o)); box.appendChild(d);});
@@ -1456,7 +1391,7 @@ function renderHost(g,ph,entered){
     go('s-board');
     $('#lbStop').textContent='Nach Etappe '+(g.qIndex+1)+' von '+g.deck.length;
     $('#nextRow').style.display='';
-    $('#btnNext').textContent=(g.qIndex<g.deck.length-1)?'Naechste Etappe':'Zum Finale';
+    $('#btnNext').textContent=(g.qIndex<g.deck.length-1)?'Nächste Etappe':'Zum Finale';
     if(entered)renderBoard(g,true);
     $('#youline').textContent='';
     return;
@@ -1464,7 +1399,6 @@ function renderHost(g,ph,entered){
   if(ph==='final'){go('s-fh'); return;}
   go('s-lobby');
 }
-/* ----- player rendering ----- */
 function renderPlayer(g,ph,entered){
   const me=(g.players||{})[S.pid];
   if(ph==='lobby'){
@@ -1483,7 +1417,7 @@ function renderPlayer(g,ph,entered){
       $('#stopctP').textContent='Etappe '+(i+1)+' von '+g.deck.length;
       $('#qpText').textContent=dq.text;
       $('#qpState').textContent=dq.statement||'';
-      $('#qpHint').textContent=(dq.type==='multi')?(dq.hint||'Mehrfachauswahl moeglich.'):'';
+      $('#qpHint').textContent=(dq.type==='multi')?(dq.hint||'Mehrfachauswahl möglich.'):'';
       $('#punched').style.display='none';
       const box=$('#qpOpts'); box.textContent=''; box.classList.add('pre'); box.style.display='';
       dq.opts.forEach((o,ix)=>{
@@ -1548,7 +1482,6 @@ function renderPlayer(g,ph,entered){
   if(ph==='final'){go('s-fp'); return;}
   go('s-wait');
 }
-/* ---------------- answering ---------------- */
 function togglePick(dq,ix){
   const g=S.game;
   if(!g||g.phase!=='question'||g.qIndex==null)return;
@@ -1589,7 +1522,6 @@ async function submitAnswer(){
     S.localSubmitted=false; updatePickUI();
   }
 }
-/* ---------------- question loop (timer + countdown) ---------------- */
 let lastCd=99;
 function qLoop(){
   const g=S.game;
@@ -1623,7 +1555,6 @@ function qLoop(){
   }
   S.raf=requestAnimationFrame(qLoop);
 }
-/* ---------------- leaderboard (FLIP + count-up) ---------------- */
 function renderBoard(g,animate){
   const box=$('#lb');
   box.textContent='';
@@ -1696,7 +1627,6 @@ function countUp(elm,from,to){
   }
   requestAnimationFrame(step);
 }
-/* ---------------- final screens + celebration ---------------- */
 let celebOn=false, celebSnd=0, celebRaf=0;
 function heroFor(p,pickN){
   const st=p.stats||{}; const c=st.c||0, pp=st.p||0, b=st.b||0, f=(st.f!=null?st.f:999999);
@@ -1777,7 +1707,7 @@ function buildReport(g){
     const parts=[];
     if(worst.i>=0)parts.push('Schwierigste Etappe: '+(worst.i+1)+' ('+Math.round(worst.rate*100)+'% verpasst)');
     if(fast)parts.push('Schnellste Finger: '+fast+' ('+(fk/1000).toFixed(1)+'s)');
-    if(str&&sk>=2)parts.push('Laengste Serie: '+str+' ('+sk+')');
+    if(str&&sk>=2)parts.push('Längste Serie: '+str+' ('+sk+')');
     parts.push('Klassengenauigkeit: '+acc+'%');
     let rep=parts.join('    ·    ');
     if(worst.i>=0&&worst.txt){
@@ -1861,7 +1791,6 @@ function runPlayerFinal(g){
     }
   }else SFX.ding();
 }
-/* ---------------- background animation (Zuerich diagonals) ---------------- */
 let bgOn=false, bgRaf=0, bgFit=false;
 function stopBg(){bgOn=false; cancelAnimationFrame(bgRaf);
   const cv=$('#bgc'); const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);}
@@ -1871,7 +1800,7 @@ function startBg(){
   let bands=[], laurels=[];
   function seed(){
     const n=Math.max(10,Math.min(22,Math.round(innerWidth/90)));
-    bands=Array.from({length:n},(_,k)=>({x:Math.random()*(cv.width+cv.height)-cv.height*0.5,
+    bands=Array.from({length:n},()=>({x:Math.random()*(cv.width+cv.height)-cv.height*0.5,
       w:40+Math.random()*90, sp:0.15+Math.random()*0.45, c:Math.random()}));
     const m=Math.max(6,Math.min(16,Math.round(innerWidth/160)));
     laurels=Array.from({length:m},()=>({x:Math.random(),y:Math.random(),sp:0.02+Math.random()*0.05,
@@ -1911,7 +1840,6 @@ function startBg(){
   }
   frame();
 }
-/* ---------------- debug panel ---------------- */
 function renderDebug(){
   const d=$('#debug'); if(!d||d.hidden)return;
   const g=S.game||{};
@@ -1927,10 +1855,9 @@ function renderDebug(){
     'stream   '+(age<0?'noch keine Daten':(age+'s seit letztem Update'+(age>15?'  STALE':''))),
     'firebase '+(firebaseConfig.projectId||'-')
   ].join('\n');
-  $('#dbtrace').textContent=S.trace.slice().reverse().join('\n')||'Noch keine Uebergaenge.';
-  $('#dblog').textContent=ERR.slice().reverse().join('\n')||'Keine Fehler protokolliert. Schoen.';
+  $('#dbtrace').textContent=S.trace.slice().reverse().join('\n')||'Noch keine Übergänge.';
+  $('#dblog').textContent=ERR.slice().reverse().join('\n')||'Keine Fehler protokolliert. Schön.';
 }
-/* ---------------- static build ---------------- */
 function renderEmg(){
   const eg=$('#emg'); if(eg.childElementCount)return;
   EMOJIS.forEach((e2,ix)=>{
@@ -1939,6 +1866,18 @@ function renderEmg(){
       eg.querySelectorAll('button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel');});
     eg.appendChild(b);
   });
+}
+function buildLengthButtons(){
+  const row=$('#lenRow'); if(!row||row.childElementCount)return;
+  LENGTHS.forEach(L=>{
+    const b=el('button','lenb'); b.id='btnLen'+L.n;
+    b.appendChild(document.createTextNode(String(L.n)));
+    b.appendChild(el('small',null,L.label));
+    b.addEventListener('click',ev=>{S.lenN=L.n; busy(ev.currentTarget,createGame);});
+    row.appendChild(b);
+  });
+  const li=$('#li-lengths');
+  if(li)li.textContent='Rundenlänge wählen ('+LENGTHS.map(L=>L.n).join(', ')+' Fragen).'+(false?' Bei der längsten Runde wiederholen sich einige Fragen zufällig.':'');
 }
 function wire(){
   $('#btnHost').addEventListener('click',()=>{ensureAudio(); $('#hostPw').value=''; $('#loginErr').textContent=''; go('s-hostlogin');});
@@ -1949,9 +1888,6 @@ function wire(){
     $('#loginErr').textContent=''; go('s-setup');
   });
   $('#btnSetupBack').addEventListener('click',()=>go('s-hostlogin'));
-  $('#btnLen5').addEventListener('click',ev=>{S.lenN=5; busy(ev.currentTarget,createGame);});
-  $('#btnLen10').addEventListener('click',ev=>{S.lenN=10; busy(ev.currentTarget,createGame);});
-  $('#btnLen15').addEventListener('click',ev=>{S.lenN=15; busy(ev.currentTarget,createGame);});
   $('#btnHow').addEventListener('click',()=>go('s-howto'));
   $('#btnHowBack').addEventListener('click',()=>go('s-landing'));
   $('#codebig').addEventListener('click',()=>{if(!S.code)return; $('#codeovTxt').textContent=S.code; $('#codeov').hidden=false;});
@@ -1959,7 +1895,7 @@ function wire(){
   $('#muteBtn').addEventListener('click',()=>{ensureAudio(); setMute(!MUTED);});
   $('#homeBtn').addEventListener('click',()=>{
     if(S.code&&S.game&&S.game.phase!=='final'){
-      const msg=(S.role==='host')?'Dies verlaesst das gehostete Spiel. Zum Start zurueck?':'Dies verlaesst das aktuelle Spiel. Wiedereinstieg mit dem Code moeglich. Zum Start zurueck?';
+      const msg=(S.role==='host')?'Dies verlässt das gehostete Spiel. Zum Start zurück?':'Dies verlässt das aktuelle Spiel. Wiedereinstieg mit dem Code möglich. Zum Start zurück?';
       if(!confirm(msg))return;
     }
     leave();
@@ -1988,7 +1924,7 @@ function wire(){
     const txt=lines.join('\n');
     if(navigator.clipboard&&navigator.clipboard.writeText)
       navigator.clipboard.writeText(txt).then(()=>toast('Ergebnisse in die Zwischenablage kopiert.'),()=>toast('Kopieren fehlgeschlagen. Ein Screenshot geht auch.'));
-    else toast('Kopieren wird hier nicht unterstuetzt.');
+    else toast('Kopieren wird hier nicht unterstützt.');
   });
   $('#btnCsv').addEventListener('click',()=>{
     const g=S.game; if(!g)return;
@@ -2010,7 +1946,7 @@ function wire(){
     const txt=$('#dbmeta').textContent+'\n\nPHASEN\n'+$('#dbtrace').textContent+'\n\nFEHLER\n'+$('#dblog').textContent;
     if(navigator.clipboard&&navigator.clipboard.writeText)
       navigator.clipboard.writeText(txt).then(()=>toast('Log kopiert.'),()=>toast('Kopieren fehlgeschlagen. Text manuell markieren.'));
-    else toast('Kopieren nicht unterstuetzt. Text manuell markieren.');
+    else toast('Kopieren nicht unterstützt. Text manuell markieren.');
   });
   $('#inCode').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().split('').filter(ch=>/[A-Z0-9]/.test(ch)).join('');});
   document.addEventListener('keydown',e=>{
@@ -2024,9 +1960,9 @@ function wire(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)ensureAudio();});
   addEventListener('resize',()=>{const g=S.game; if(g&&g.phase==='board')renderBoard(g,false);});
 }
-/* ---------------- boot ---------------- */
 validatePools();
 renderEmg();
+buildLengthButtons();
 wire();
 updateVtag();
 try{setMute(sessionStorage.getItem('dl_mute')==='1');}catch(e){setMute(false);}
