@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Digilex Quiz</title>
+<style>
+:root {
+  --bg: #0d1b2a;
+  --panel: rgba(255,255,255,0.09);
+  --panel2: rgba(255,255,255,0.14);
+  --text: #f5f7fb;
+  --muted: #c5cfdd;
+  --gold: #e7bc61;
+  --blue: #61dafb;
+  --green: #58d68d;
+  --red: #ff7b7b;
+  --border: rgba(255,255,255,0.18);
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); min-height: 100vh; background: radial-gradient(circle at top left, #253b57, #0d1b2a 48%, #07111d); }
+button, input { font: inherit; }
+button { border: 0; border-radius: 14px; padding: 12px 16px; color: #092135; background: var(--gold); font-weight: 750; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+button.secondary { background: rgba(255,255,255,.12); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+button.danger { background: #ff9c9c; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+input { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.08); color: var(--text); outline: none; }
+.app { max-width: 1180px; margin: 0 auto; padding: 24px; }
+.hero { padding: 34px; border-radius: 28px; border: 1px solid var(--border); background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.06)); box-shadow: 0 24px 80px rgba(0,0,0,.23); overflow: hidden; position: relative; }
+.hero::after { content: ''; position: absolute; inset: -80px -120px auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, rgba(231,188,97,.28), transparent 62%); }
+h1 { margin: 0 0 10px; font-size: clamp(32px, 5vw, 62px); line-height: 1.02; letter-spacing: -1.6px; }
+h2 { margin: 0 0 12px; font-size: clamp(24px, 3vw, 38px); }
+h3 { margin: 0 0 10px; }
+p { color: var(--muted); line-height: 1.55; }
+.grid { display: grid; gap: 18px; }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.card { padding: 22px; border-radius: 22px; border: 1px solid var(--border); background: var(--panel); backdrop-filter: blur(8px); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 10px; background: rgba(231,188,97,.14); color: #ffe0a0; border: 1px solid rgba(231,188,97,.25); font-weight: 650; font-size: 13px; }
+.small { font-size: 13px; color: var(--muted); }
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px; }
+.avatar { min-height: 72px; border-radius: 18px; border: 1px solid var(--border); background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.05)); display: grid; place-items: center; cursor: pointer; position: relative; }
+.avatar.selected { outline: 3px solid var(--gold); }
+.avatar.taken { opacity: .35; pointer-events: none; }
+.avatar svg { width: 52px; height: 52px; }
+.icon-medal { width: 76px; height: 76px; margin-bottom: 10px; }
+.session-code { font-size: 44px; letter-spacing: 7px; color: var(--gold); font-weight: 900; }
+.question { display: grid; gap: 16px; }
+.options { display: grid; gap: 12px; }
+.option { text-align: left; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,.09); }
+.option.selected { border-color: var(--gold); background: rgba(231,188,97,.20); }
+.option.correct { border-color: var(--green); background: rgba(88,214,141,.17); }
+.option.wrong { border-color: var(--red); background: rgba(255,123,123,.14); }
+.lobby-avatar { width: 130px; height: 130px; border-radius: 50%; border: 1px solid rgba(231,188,97,.35); display: grid; place-items: center; background: radial-gradient(circle, rgba(231,188,97,.20), rgba(255,255,255,.06)); animation: floaty 3s ease-in-out infinite; }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.pathline { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--gold), var(--blue)); opacity: .9; }
+.notice { border-left: 4px solid var(--gold); padding: 12px 14px; background: rgba(231,188,97,.10); border-radius: 12px; color: #ffe0a0; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+.finalTop { background: linear-gradient(145deg, rgba(231,188,97,.22), rgba(255,255,255,.07)); }
+.footer { margin-top: 30px; color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) { .app { padding: 14px; } .hero { padding: 22px; } .session-code { font-size: 34px; } }
+
+
+/* Ergänzungen für die Single-File-Version */
+.screen { display: none; }
+.screen.active { display: block; }
+#err-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 60; max-width: 92vw; background: #7a1f2b; color: #ffe3e3; border: 1px solid #ff9c9c; border-radius: 12px; padding: 10px 16px; font-size: 14px; display: none; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+#err-banner.show { display: block; }
+#status-bar { position: fixed; top: 10px; right: 12px; z-index: 55; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); background: rgba(13,27,42,.7); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; }
+#conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #888; display: inline-block; }
+#conn-dot.ok { background: var(--green); }
+#conn-dot.bad { background: var(--red); }
+#version-tag { position: fixed; bottom: 8px; right: 12px; z-index: 55; font-size: 11px; color: var(--muted); opacity: .8; }
+#qr-box { background: #fff; padding: 8px; border-radius: 12px; width: 176px; }
+#qr-box img, #qr-box canvas { display: block; }
+.joinlink { word-break: break-all; font-size: 13px; }
+button.busy { opacity: .55; pointer-events: none; }
+.podium-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+@media (prefers-reduced-motion: reduce) { .lobby-avatar { animation: none; } }
+</style>
+</head>
+<body>
+
+<div id="status-bar"><span id="conn-dot"></span><span id="conn-label">Demo</span></div>
+<div id="err-banner"></div>
+<div id="version-tag"></div>
+
+<!-- Startseite -->
+<div id="scr-home" class="screen">
+  <div class="app"><div class="hero">
+    <div class="badge">Townhall-Quiz</div>
+    <p id="config-notice" class="notice" style="display:none"></p>
+    <h1 id="home-title"></h1>
+    <p>Fachlich neutral, mit Verwaltungsflair und dezentem Projekt-Olymp-Vibe. Bereit für <span id="home-qcount"></span> Fragen, bis zu <span id="home-maxplayers"></span> Teilnehmende und ein Finale mit Olymp-Aufstieg.</p>
+    <div class="grid two">
+      <div class="card"><h3>Host starten</h3><p>Session erstellen, Lobby anzeigen, Quiz steuern und Ergebnisse exportieren.</p><button id="btn-host">Host-Modus öffnen</button></div>
+      <div class="card"><h3>Teilnehmen</h3><p>Mit Session-Code oder QR-Code beitreten, Namen eingeben und Avatar wählen.</p><button id="btn-join">Teilnehmeransicht öffnen</button></div>
+    </div>
+    <div class="footer">Kein Sound. Keine öffentliche Rangliste ausser Top 3.</div>
+  </div></div>
+</div>
+
+<!-- Host Login -->
+<div id="scr-hostlogin" class="screen">
+  <div class="app"><div class="hero">
+    <h2>Host-Zugang</h2>
+    <p>Admin-Code eingeben. Der Standard steht im QUIZ-Block dieser Datei und sollte vor produktivem Einsatz geändert werden.</p>
+    <input type="password" id="host-pw" placeholder="Admin-Code" />
+    <div class="actions"><button id="btn-create">Neue Session erstellen</button><button class="secondary" id="btn-login-back">Zurück</button></div>
+    <p id="login-err" style="color:var(--red)"></p>
+  </div></div>
+</div>
+
+<!-- Join -->
+<div id="scr-join" class="screen">
+  <div class="app"><div class="hero">
+    <h2>Teilnehmen</h2>
+    <div class="grid two">
+      <div>
+        <label>Session-Code</label>
+        <input id="join-code" placeholder="6-stelliger Code" inputmode="numeric" />
+        <label>Name</label>
+        <input id="join-name" placeholder="Ihr Name" maxlength="20" />
+        <div class="actions"><button id="btn-enter">Beitreten</button><button class="secondary" id="btn-join-back">Zurück</button></div>
+        <p id="join-err" style="color:var(--red)"></p>
+      </div>
+      <div>
+        <h3>Avatar wählen</h3>
+        <div class="avatar-grid" id="avatar-grid"></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- Host -->
+<div id="scr-host" class="screen">
+  <div class="app"><div class="hero">
+    <div class="badge">Host</div>
+    <h2>Session <span class="session-code" id="host-code"></span></h2>
+    <div id="host-main"></div>
+  </div></div>
+</div>
+
+<!-- Player -->
+<div id="scr-player" class="screen">
+  <div class="app"><div class="hero" id="player-main"></div></div>
+</div>
+
+<!-- Firebase compat SDK und QR-Bibliothek per CDN. Ohne Firebase SDK zeigt die App eine sichtbare Fehlermeldung, ohne qrcodejs bleibt der klickbare Link als Fallback. -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+'use strict';
+
+/* ============================================================
+   FIREBASE-KONFIGURATION (der einzige Block, den man anfassen muss)
+
+   1) console.firebase.google.com: Projekt erstellen
+   2) Build > Realtime Database > Datenbank erstellen (europe-west1),
+      "Im Testmodus starten" wählen. Fertig, keine Regeln nötig.
+   3) Zahnrad > Projekteinstellungen > Meine Apps > Web-App (</>)
+      anlegen und die Config-Werte unten einsetzen.
+   4) WICHTIG: databaseURL muss vorhanden sein und zur Region passen.
+      Der Konsolen-Schnipsel lässt das Feld oft weg. Muster:
+      https://PROJEKTNAME-default-rtdb.europe-west1.firebasedatabase.app
+      Die exakte URL steht oben in der Realtime-Database-Ansicht.
+
+   Hinweis: Testmodus-Regeln laufen nach 30 Tagen ab, danach meldet
+   die App "Permission denied". Fix: Firebase-Konsole > Realtime
+   Database > Regeln, entweder das Datum hochsetzen oder dauerhaft
+   diese Regeln veröffentlichen:
+   { "rules": { "sessions": { "$session": { ".read": true, ".write": true } } } }
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDpPPvcNkP8vHiRCyZTg9EwD8lHUO5HEZk",
+  authDomain: "digilex-quiz.firebaseapp.com",
+  databaseURL: "https://digilex-quiz-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "digilex-quiz",
+  storageBucket: "digilex-quiz.firebasestorage.app",
+  messagingSenderId: "77721487079",
+  appId: "1:77721487079:web:ef136b4724e9c1c1120442"
+};
+/* ============================================================ */
+
+/* ================== QUIZ-DATEN (frei editierbar) ==================
+   Schema pro Frage: { id, type: single|multi|truefalse, text,
+   options[], correct: [Indizes ab 0], seconds, explanation, icon }
+   Beim Laden werden alle Fragen automatisch validiert. */
+const QUIZ = {
+  title: "Digilex - Das Epos der VD - bist du unser:e Projektheld:in",
+  maxPlayers: 30,
+  hostPassword: "olymp2027",
+  startText: "Der Projekt-Olymp ruft. Ihre digitale Odyssee beginnt.",
+  questions: [
+    {
+      id: "q1",
+      type: "single",
+      text: "Wann treten die neuen digitalen Behördenprozesse in Kraft?",
+      options: [
+        "Ab dem 1. Januar 2027.",
+        "Sobald das letzte Faxgerät im Kanton feierlich beerdigt wurde.",
+        "Gestern. Aber wir alle haben die Mail im Spam-Ordner übersehen.",
+        "Ab dem 1. Juli 2027 gemeinsam mit dem BEKJ."
+      ],
+      correct: [0],
+      seconds: 35,
+      explanation: "Ab dem 1. Januar 2027 treten die neuen digitalen Behördenprozesse in Kraft. Damit beginnt ein wichtiger Schritt in Richtung moderner, durchgängiger und digital unterstützter Verwaltungspraxis, ganz ohne feierliche Fax-Bestattung.",
+      icon: "1/7 - Erster Schritt der Odyssee zum digitalen Helden ist getan"
+    },
+    {
+      id: "q2",
+      type: "multi",
+      text: "Wer ist zur Nutzung der digitalen Dienste verpflichtet?",
+      hint: "Mehrfachauswahl möglich, 2 Antworten sind richtig.",
+      options: [
+        "Verwaltungsbehörden untereinander.",
+        "Berufsmässige Vertretung, z. B. Anwälte, Treuhänder.",
+        "Nur ausländische Unternehmen und Grosskonzerne.",
+        "Alle Einwohnerinnen und Einwohner des Kantons Zürich, die sich nach 22:00 Uhr noch aktiv über die lärmenden Nachbarn beschweren wollen."
+      ],
+      correct: [0, 1],
+      seconds: 30,
+      explanation: "Zur Nutzung der digitalen Dienste verpflichtet sind Verwaltungsbehörden im Austausch untereinander sowie berufsmässige Vertretungen, zum Beispiel Anwältinnen, Anwälte oder Treuhänderinnen und Treuhänder. Damit wird der digitale Kanal dort verbindlich, wo Verfahren besonders regelmässig, professionell und behördennah geführt werden. Die nächtliche Nachbarschaftsbeschwerde bleibt davon heldenhaft unberührt.",
+      icon: "2/7 - Der zweite Schritt auf dem digitalen Behördenpfad"
+    },
+    {
+      id: "q3",
+      type: "single",
+      text: "Welches Login wird beim Zürich Konto standardmässig eingesetzt?",
+      options: [
+        "SwissID",
+        "AGOV, schweizweites Behörden-Login",
+        "Eine beglaubigte ID-Kopie, die am AFI-Schalter eingereicht wird",
+        "Meine gespeicherte Google- oder Apple-ID"
+      ],
+      correct: [1],
+      seconds: 40,
+      explanation: "Beim Zürich Konto wird standardmässig AGOV eingesetzt, das schweizweite Behörden-Login. Damit wird der Zugang zu digitalen Behördenleistungen einheitlicher, sicherer und anschlussfähig über Verwaltungsgrenzen hinweg. Der digitale Heldenschritt führt hier also nicht über Google, Apple oder den Schalter, sondern über das Behörden-Login.",
+      icon: "3/7 - Das Tor zum digitalen Behördenzugang wird geöffnet"
+    },
+    {
+      id: "q4",
+      type: "truefalse",
+      text: "Was passiert, wenn Sie künftig ein Gesuch digital bei der Behörde einreichen?",
+      statement: "Wenn Sie den digitalen Weg wählen, erhalten Sie die Antwort der Behörde weiterhin per Post.",
+      options: ["Wahr", "Falsch"],
+      correct: [1],
+      seconds: 40,
+      explanation: "",
+      icon: "4/7 - Der digitale Pfad führt weiter zur behördlichen Antwort"
+    },
+    {
+      id: "q5",
+      type: "multi",
+      text: "Welche elektronischen Mittel sind laut den neuen Vorgaben für bestimmte, definierte sichere Kanäle rechtlich anerkannt?",
+      hint: "Mehrfachauswahl möglich, 2 Antworten sind richtig.",
+      options: [
+        "Eine eingescannte handschriftliche Unterschrift.",
+        "Eine qualifizierte elektronische Signatur, QES.",
+        "Das AGOV-Login.",
+        "Ein digitaler Schwur mit der rechten Hand auf der Computermaus."
+      ],
+      correct: [1, 2],
+      seconds: 45,
+      explanation: "Für bestimmte, definierte sichere Kanäle sind rechtlich anerkannte elektronische Mittel vorgesehen, insbesondere die qualifizierte elektronische Signatur, QES, sowie das AGOV-Login. Damit wird der digitale Weg nicht nur schneller, sondern auch rechtlich belastbar. Der Schwur auf die Computermaus bleibt hingegen ein eher mythologisches Ritual ohne Rechtswirkung.",
+      icon: "5/7 - Das Siegel des digitalen Helden wird anerkannt"
+    },
+    {
+      id: "q6",
+      type: "single",
+      text: "Welche Methode ist ab 2027 für die digitale Kommunikation mit den Behörden nicht zulässig?",
+      options: [
+        "Eine ungeschützte E-Mail-Adresse für Versand bzw. Kommunikation.",
+        "Das Zürich Konto mit AGOV-Login.",
+        "Ein sicheres E-Mail-System wie IncaMail oder PrivaSphere mit QES.",
+        "Die Plattform Justitia.Swiss für strittige Verfahren."
+      ],
+      correct: [0],
+      seconds: 45,
+      explanation: "Eine ungeschützte E-Mail-Adresse ist für die digitale Kommunikation mit den Behörden ab 2027 nicht zulässig. Vorgesehen sind sichere und nachvollziehbare digitale Kanäle, zum Beispiel das Zürich Konto mit AGOV-Login, sichere E-Mail-Systeme wie IncaMail oder PrivaSphere mit QES sowie Justitia.Swiss für strittige Verfahren. Der digitale Heldenpfad führt also nicht durch das offene E-Mail-Tal, sondern über gesicherte Kanäle.",
+      icon: "6/7 - Der sichere Kanal durch das digitale Meer"
+    },
+    {
+      id: "q7",
+      type: "single",
+      text: "Wer hat es erfunden?",
+      options: [
+        "Ricola",
+        "Der Kanton",
+        "Ein antikes Projektorakel mit WLAN-Anschluss",
+        "Eine interdepartementale Heldengruppe auf digitaler Odyssee"
+      ],
+      correct: [1],
+      seconds: 45,
+      explanation: "",
+      icon: "7/7 - Die letzte Etappe: Der digitale Held erreicht den Projekt-Olymp"
+    }
+  ],
+  podium: [
+    { rank: 1, title: "Athena Aktenklar", text: "Hat den Paragrafen-Nebel geteilt, den digitalen Pfad erkannt und steigt verdient in den Projekt-Olymp auf." },
+    { rank: 2, title: "Hermes Häkchenschnell", text: "War schneller als der Dienstweg erlaubt und hat die Antworten mit göttlicher Treffsicherheit zugestellt." },
+    { rank: 3, title: "Herakles Formularis", text: "Hat sieben Quiz-Abenteuer bezwungen und den Formularberg mit Würde, Wissen und leichtem Schulterzucken erklommen." }
+  ]
+};
+
+const heroProfiles = [
+  { id: 'oracle', title: 'Orakel der Aktenlage', rule: 'Hohe Trefferquote, aber nicht Top 3.', text: 'Sie haben vielleicht nicht den Olymp erklommen, aber Ihre Antworten hatten verdächtig oft recht.', icon: 'Aktenblatt mit kleinem Orakel-Stern' },
+  { id: 'halbschritt', title: 'Hermes im Halbschritt', rule: 'Sehr schnelle Antworten mit einigen Fehlgriffen.', text: 'Blitzschnell unterwegs, gelegentlich war der Dienstweg noch nicht ganz fertig ausgeschildert.', icon: 'Geflügelter Schuh neben einem Häkchen' },
+  { id: 'formular', title: 'Formular-Flüster:in', rule: 'Eher langsam, aber häufig richtig.', text: 'Sie klicken nicht hektisch, Sie verhandeln mit der Antwort, bis sie sich freiwillig ergibt.', icon: 'Formular mit sanfter Sprechblase und Häkchen' },
+  { id: 'pfadfinder', title: 'Paragrafen-Pfadfinder:in', rule: 'Solide Gesamtleistung mit ausgeglichener Geschwindigkeit.', text: 'Wenn der Weg unklar wird, suchen Sie nicht die Abkürzung, sondern die Rechtsgrundlage.', icon: 'Wegweiser mit Paragrafenzeichen' },
+  { id: 'dienstweg', title: 'Dienstweg-Dompteur:in', rule: 'Mehrere richtige Antworten in Folge.', text: 'Sie haben den Dienstweg gezähmt. Er hat kurz gezuckt, aber am Ende nachgegeben.', icon: 'Geschwungener Pfad zum Ziel-Häkchen' },
+  { id: 'haekchen', title: 'Hüter:in des Häkchens', rule: 'Stark bei Mehrfachauswahl-Fragen.', text: 'Sie wissen: Ein kleines Häkchen kann manchmal ein grosses Verwaltungsabenteuer entscheiden.', icon: 'Schild mit Häkchen' },
+  { id: 'nebel', title: 'Bezwinger:in des Aktennebels', rule: 'Verbesserung nach schwachem Start.', text: 'Erst Nebel, dann Durchblick. Eine klassische Held:innenentwicklung in sieben Fragen.', icon: 'Aktenstapel mit klarer Linie' },
+  { id: 'kanal', title: 'Kanal-Kompass', rule: 'Stark bei Login, Kanälen und Kommunikation.', text: 'Sie haben gespürt, welcher Kanal trägt und welcher eher Richtung Fax-Museum führt.', icon: 'Kompass mit digitalem Verbindungspunkt' },
+  { id: 'pegasus', title: 'Projekt-Pegasus', rule: 'Konstant mittlere bis gute Leistung.', text: 'Nicht laut, nicht wild, aber zuverlässig mit Schwung Richtung Ziel.', icon: 'Flügel über einer Projektlinie' },
+  { id: 'argo', title: 'Argonaut:in der Umsetzung', rule: 'Durchschnittlich, aber zuverlässig.', text: 'Sie sind Teil der Crew, halten Kurs und wissen: Kein Heldenepos entsteht allein.', icon: 'Schiff auf digitalem Wellenpfad' },
+  { id: 'sphinx', title: 'Sphinx der Schnittstelle', rule: 'Wechselhaft mit mindestens einem starken Treffer.', text: 'Sie bleiben rätselhaft, aber wenn es zählt, kommt plötzlich die richtige Antwort aus dem Nichts.', icon: 'Fragezeichen zwischen verbundenen Knoten' },
+  { id: 'offizier', title: 'Odyssee-Offizier:in', rule: 'Teilnahme bis zum Schluss.', text: 'Sie haben die Reise vollständig absolviert. Das allein verdient ein digitales Lorbeerblatt.', icon: 'Etappenkarte mit Lorbeerblatt' },
+  { id: 'akrobat', title: 'Akten-Akrobat:in', rule: 'Sehr schnell und aktiv.', text: 'Sie jonglieren Antworten, Fristen und Bauchgefühl mit beachtlicher Eleganz.', icon: 'Balancierender Aktenstapel mit Stern' },
+  { id: 'virtuos', title: 'Verfahrens-Virtuos:in', rule: 'Stark bei rechtlich-fachlichen Fragen.', text: 'Sie spielen auf der Klaviatur der Verfahren, auch wenn manche Tasten noch beschriftet werden müssen.', icon: 'Ablaufdiagramm mit Häkchen' },
+  { id: 'zwischenschritt', title: 'Held:in des gepflegten Zwischenschritts', rule: 'Niedrige bis mittlere Punktzahl, aber vollständige Teilnahme.', text: 'Sie wissen: Jede grosse digitale Reise beginnt mit einem sauber abgestimmten nächsten Schritt.', icon: 'Treppe mit hervorgehobenem nächsten Schritt' }
+];
+
+/* ================================================================= */
+
+const VERSION = 'Digilex v2.4-single (Build 2026-08-19)';
+const BASE = 1000;
+const STREAK_BONUS = 50;
+const FB_TIMEOUT_MS = 9000;
+
+const isFirebaseConfigured = !firebaseConfig.apiKey.startsWith('PASTE_');
+const HAS_FIREBASE = isFirebaseConfigured && typeof firebase !== 'undefined';
+
+function now() { return Date.now(); }
+function makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+function safeId() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'p-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36);
+}
+function joinUrl(code) { return location.origin + location.pathname + '?join=' + code; }
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+function avg(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 999999; }
+function sortedArray(obj) { return Object.entries(obj || {}).map(([id, v]) => ({ id, ...v })); }
+function qsel(id) { return document.getElementById(id); }
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = text;
+  return n;
+}
+
+/* ---------- Sichtbare Fehler statt stiller Ausfälle ---------- */
+let errTimer = null;
+function showError(msg) {
+  const b = qsel('err-banner');
+  b.textContent = msg;
+  b.classList.add('show');
+  if (errTimer) clearTimeout(errTimer);
+  errTimer = setTimeout(() => b.classList.remove('show'), 7000);
+  console.error('[Digilex]', msg);
+}
+function withTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((resolve, reject) => setTimeout(() => reject(new Error(label + ': keine Antwort nach ' + (FB_TIMEOUT_MS / 1000) + ' Sekunden')), FB_TIMEOUT_MS))
+  ]);
+}
+function busyWrap(btn, fn) {
+  return async function (ev) {
+    if (btn.classList.contains('busy')) return;
+    btn.classList.add('busy');
+    try { await fn(ev); }
+    catch (e) { showError(e && e.message ? e.message : String(e)); }
+    finally { btn.classList.remove('busy'); }
+  };
+}
+
+/* ---------- Datenschicht: Firebase (Live-Betrieb) ---------- */
+let api = null;
+if (window.__TEST_API) {
+  /* Testumgebung: die automatischen Tests injizieren hier eine In-Memory-Datenbank */
+  api = window.__TEST_API;
+  qsel('conn-dot').className = 'ok';
+  qsel('conn-label').textContent = 'Test';
+} else if (HAS_FIREBASE) {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  api = {
+    read: async (p) => (await withTimeout(db.ref(p).once('value'), 'Firebase lesen')).val(),
+    write: (p, v) => withTimeout(db.ref(p).set(v), 'Firebase schreiben'),
+    patch: (p, v) => withTimeout(db.ref(p).update(v), 'Firebase schreiben'),
+    del: (p) => withTimeout(db.ref(p).remove(), 'Firebase löschen'),
+    subscribe: (p, cb) => {
+      const r = db.ref(p);
+      const h = r.on('value', (snap) => cb(snap.val()), (err) => showError('Firebase Verbindung: ' + err.message));
+      return () => r.off('value', h);
+    }
+  };
+  db.ref('.info/connected').on('value', (snap) => {
+    const ok = snap.val() === true;
+    qsel('conn-dot').className = ok ? 'ok' : 'bad';
+    qsel('conn-label').textContent = ok ? 'Live' : 'Offline';
+  });
+} else {
+  /* Keine Konfiguration oder SDK nicht geladen: die App bleibt komplett
+     anschaubar, nur Aktionen, die Firebase brauchen, melden sich sichtbar. */
+  const actionMsg = isFirebaseConfigured
+    ? 'Firebase SDK nicht geladen. Internetverbindung prüfen und die Seite neu laden.'
+    : 'Firebase ist noch nicht konfiguriert. Den Block FIREBASE-KONFIGURATION in der index.html ausfüllen.';
+  const noticeMsg = isFirebaseConfigured
+    ? 'Firebase SDK nicht geladen: Internetverbindung prüfen und die Seite neu laden.'
+    : 'Firebase ist noch nicht konfiguriert: Anschauen und Durchklicken geht, Sessions erstellen oder beitreten noch nicht. Die Anleitung steht im Block FIREBASE-KONFIGURATION in dieser Datei.';
+  const nope = async () => { throw new Error(actionMsg); };
+  api = { __stub: true, __notice: noticeMsg, read: nope, write: nope, patch: nope, del: nope, subscribe: (p, cb) => { cb(null); return () => {}; } };
+  qsel('conn-dot').className = 'bad';
+  qsel('conn-label').textContent = isFirebaseConfigured ? 'Offline' : 'Nicht konfiguriert';
+}
+
+/* ---------- Validierung der Fragen beim Laden ---------- */
+function validateQuiz() {
+  const issues = [];
+  const seen = new Set();
+  if (!Array.isArray(QUIZ.questions) || QUIZ.questions.length === 0) issues.push('QUIZ.questions ist leer.');
+  (QUIZ.questions || []).forEach((q, i) => {
+    const tag = 'Frage ' + (i + 1) + ' (' + (q.id || 'ohne id') + ')';
+    if (!q.id || seen.has(q.id)) issues.push(tag + ': id fehlt oder doppelt.');
+    seen.add(q.id);
+    if (!Array.isArray(q.options) || q.options.length < 2) issues.push(tag + ': weniger als 2 Optionen.');
+    if (!Array.isArray(q.correct) || q.correct.length === 0) issues.push(tag + ': correct ist leer.');
+    (q.correct || []).forEach((c) => {
+      if (!Number.isInteger(c) || c < 0 || c >= (q.options || []).length) issues.push(tag + ': correct-Index ' + c + ' ausserhalb der Optionen.');
+    });
+    if (typeof q.seconds !== 'number' || q.seconds < 5 || q.seconds > 300) issues.push(tag + ': seconds unplausibel (' + q.seconds + ').');
+  });
+  if (issues.length) {
+    issues.forEach((m) => console.error('[Fragen-Validierung]', m));
+    showError('Fragen-Validierung fehlgeschlagen: ' + issues.length + ' Problem(e). Details in der Konsole (F12).');
+  }
+  return issues;
+}
+
+/* ---------- Punktelogik (identisch zur React-Version) ---------- */
+function scoreAnswer(q, selected, elapsedMs) {
+  const correctSet = new Set(q.correct);
+  const hasWrong = selected.some((x) => !correctSet.has(x));
+  const correctSelected = selected.filter((x) => correctSet.has(x)).length;
+  const full = correctSelected === q.correct.length && selected.length === q.correct.length;
+  let points = 0;
+  if (full) {
+    const ratio = clamp(elapsedMs / (q.seconds * 1000), 0, 1);
+    points = Math.round(BASE * (1 - ratio * 0.45));
+  } else if (q.type === 'multi' && correctSelected > 0 && !hasWrong) {
+    points = Math.round((BASE / q.correct.length) * correctSelected * 0.75);
+  }
+  return { full, partial: !full && points > 0, points };
+}
+
+/* Antwort verbuchen: von echten Teilnehmenden, Bots und Tests genutzt.
+   Blockt Doppel-Antworten auf dieselbe Frage. */
+async function applyAnswer(code, sess, pid, q, selected, elapsedMs) {
+  if (!sess || !q) return false;
+  if (sess.answers && sess.answers[q.id] && sess.answers[q.id][pid]) return false;
+  const player = (sess.players || {})[pid];
+  if (!player) return false;
+  const res = scoreAnswer(q, selected, elapsedMs);
+  const newStreak = res.full ? (player.streak || 0) + 1 : 0;
+  const bonus = res.full && newStreak >= 2 ? STREAK_BONUS : 0;
+  await api.write('sessions/' + code + '/answers/' + q.id + '/' + pid, { selected, elapsedMs, full: res.full, partial: res.partial, points: res.points, bonus });
+  await api.patch('sessions/' + code + '/players/' + pid, {
+    score: (player.score || 0) + res.points + bonus,
+    streak: newStreak,
+    maxStreak: Math.max(player.maxStreak || 0, newStreak),
+    fullCorrect: (player.fullCorrect || 0) + (res.full ? 1 : 0),
+    partialCorrect: (player.partialCorrect || 0) + (res.partial ? 1 : 0),
+    wrong: (player.wrong || 0) + (!res.full && !res.partial ? 1 : 0),
+    times: [...(player.times || []), elapsedMs]
+  });
+  return true;
+}
+
+/* ---------- Endauswertung (identisch zur React-Version) ---------- */
+function finalRows(session) {
+  const rows = sortedArray(session.players).map((p) => ({ ...p, avgTime: avg(p.times || []) / 1000 }));
+  rows.sort((a, b) => b.score - a.score || a.avgTime - b.avgTime);
+  return rows.map((r, i) => ({
+    ...r,
+    rank: i + 1,
+    finalTitle: i < 3 ? QUIZ.podium[i].title : assignProfile(r, rows).title,
+    profile: i < 3 ? null : assignProfile(r, rows)
+  }));
+}
+function assignProfile(p, rows) {
+  const qs = QUIZ.questions;
+  const fullRate = (p.fullCorrect || 0) / qs.length;
+  const avgMs = avg(p.times || []);
+  const medAvg = avg(rows.map((r) => avg(r.times || [])).filter(Boolean));
+  if (fullRate >= 0.7) return heroProfiles[0];
+  if (avgMs < medAvg * 0.75 && (p.wrong || 0) > 0) return heroProfiles[1];
+  if (avgMs > medAvg * 1.2 && fullRate >= 0.5) return heroProfiles[2];
+  if ((p.maxStreak || 0) >= 3) return heroProfiles[4];
+  if ((p.partialCorrect || 0) >= 1) return heroProfiles[5];
+  if ((p.fullCorrect || 0) >= 2) return heroProfiles[7];
+  if ((p.times || []).length >= qs.length) return heroProfiles[11];
+  if (avgMs < medAvg * 0.9) return heroProfiles[12];
+  if (fullRate >= 0.55) return heroProfiles[13];
+  if ((p.score || 0) < 1800) return heroProfiles[14];
+  return heroProfiles[9];
+}
+function buildCsv(session) {
+  const rows = finalRows(session).map((r) => ({
+    Name: r.name, Avatar: r.avatar, Punkte: r.score,
+    'VollständigRichtig': r.fullCorrect || 0, 'TeilweiseRichtig': r.partialCorrect || 0, 'Falsch': r.wrong || 0,
+    DurchschnittszeitSek: r.avgTime.toFixed(2), MaxSerie: r.maxStreak || 0, Titel: r.finalTitle
+  }));
+  const head = Object.keys(rows[0] || { Name: '', Punkte: '' }).join(';');
+  const body = rows.map((r) => Object.values(r).map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(';'));
+  return '\ufeff' + [head, ...body].join('\n');
+}
+
+/* ---------- Avatare (30 Stueck, generativ, wie im Original) ---------- */
+const AVATAR_COLORS = ['#e7bc61', '#61dafb', '#9ad7c8', '#b9a7ff', '#d6d6d6', '#f6c3a5'];
+function avatarSvgString(i, size) {
+  const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
+  const brow = i % 3 === 0 ? 'M22 18c6-8 14-8 20 0' : i % 3 === 1 ? 'M18 32c4-3 8-4 14-4s10 1 14 4' : 'M24 16l8-7 8 7';
+  return '<svg viewBox="0 0 64 64" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+    '<defs><linearGradient id="g' + i + '" x1="0" x2="1"><stop stop-color="' + c + '"/><stop offset="1" stop-color="#ffffff" stop-opacity=".85"/></linearGradient></defs>' +
+    '<circle cx="32" cy="30" r="27" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.3)"/>' +
+    '<path d="M20 49c2-11 22-11 24 0" fill="url(#g' + i + ')" opacity=".9"/>' +
+    '<circle cx="32" cy="25" r="10" fill="url(#g' + i + ')"/>' +
+    '<path d="' + brow + '" fill="none" stroke="#e7bc61" stroke-width="3" stroke-linecap="round"/>' +
+    '<path d="M16 53h32" stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+function avatarNode(i, size) {
+  const wrap = el('span');
+  wrap.innerHTML = avatarSvgString(i, size); /* nur eigener, statischer SVG-String, keine Nutzereingaben */
+  return wrap.firstChild;
+}
+
+/* ---------- Globaler Zustand des Clients ---------- */
+let mode = 'home';
+let sessionCode = '';
+let session = null;
+let unsubscribe = null;
+let playerId = localStorage.getItem('digilex-player-id') || safeId();
+localStorage.setItem('digilex-player-id', playerId);
+
+let joinAvatar = null;
+let localSelected = [];
+let localSubmitted = false;
+let lastQid = null;
+let shownAt = 0;
+let hostTick = null;
+let lastHostQid = null;
+const botPlanned = new Set();
+let qrRendered = '';
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  qsel(id).classList.add('active');
+}
+function currentQuestion(s) { return QUIZ.questions[(s && s.current) || 0]; }
+
+function subscribeSession(code) {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  sessionCode = code;
+  unsubscribe = api.subscribe('sessions/' + code, (snap) => {
+    session = snap;
+    onSession();
+  });
+}
+
+function goHome() {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  if (hostTick) { clearInterval(hostTick); hostTick = null; }
+  session = null; sessionCode = ''; mode = 'home';
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  showScreen('scr-home');
+}
+
+function onSession() {
+  if ((mode === 'host' || mode === 'player') && !session) {
+    showError('Die Session wurde beendet oder zurückgesetzt.');
+    goHome();
+    return;
+  }
+  if (mode === 'host') renderHost();
+  else if (mode === 'player') {
+    trackQuestionArrival();
+    renderPlayer();
+  }
+  else if (mode === 'join') renderAvatarGrid();
+}
+
+function trackQuestionArrival() {
+  if (!session) return;
+  const q = currentQuestion(session);
+  if (session.status === 'question' && q && q.id !== lastQid) {
+    lastQid = q.id;
+    localSelected = [];
+    localSubmitted = false;
+    shownAt = now();
+  }
+}
+
+/* ---------- Host ---------- */
+async function createSession(pw) {
+  if (pw !== QUIZ.hostPassword) throw new Error('Admin-Code nicht korrekt.');
+  const c = makeCode();
+  await api.write('sessions/' + c, {
+    code: c, status: 'lobby', current: 0, createdAt: now(), locked: false,
+    timerExtra: 0, startedAt: null, paused: false, ended: false
+  });
+  mode = 'host';
+  qsel('host-code').textContent = c;
+  showScreen('scr-host');
+  subscribeSession(c);
+  startHostTick();
+}
+
+async function openQuestion(index) {
+  botPlanned.clear();
+  await api.patch('sessions/' + sessionCode, {
+    status: 'question', current: index, startedAt: now(), paused: false, pausedAt: null, timerExtra: 0
+  });
+}
+async function closeQuestion() {
+  if (!session || session.status !== 'question') return;
+  await api.patch('sessions/' + sessionCode, { status: 'reveal', closedAt: now() });
+}
+async function startQuiz() {
+  await api.patch('sessions/' + sessionCode, { status: 'countdown', locked: true, current: 0, startedAt: now() });
+  setTimeout(() => { openQuestion(0).catch((e) => showError(e.message)); }, 3000);
+}
+async function nextQuestion() {
+  const ni = ((session && session.current) || 0) + 1;
+  if (ni >= QUIZ.questions.length) return finishQuiz();
+  await openQuestion(ni);
+}
+async function prevQuestion() { await openQuestion(Math.max(0, ((session && session.current) || 0) - 1)); }
+async function skipQuestion() {
+  const q = currentQuestion(session);
+  await api.patch('sessions/' + sessionCode + '/skipped', { [q.id]: true });
+  await nextQuestion();
+}
+async function finishQuiz() { await api.patch('sessions/' + sessionCode, { status: 'ended', ended: true, endedAt: now() }); }
+async function resetSession() { await api.del('sessions/' + sessionCode); goHome(); }
+async function extendTimer() { await api.patch('sessions/' + sessionCode, { timerExtra: ((session && session.timerExtra) || 0) + 15 }); }
+async function togglePause() {
+  if (!session) return;
+  if (!session.paused) {
+    await api.patch('sessions/' + sessionCode, { paused: true, pausedAt: now() });
+  } else {
+    const shift = now() - (session.pausedAt || now());
+    await api.patch('sessions/' + sessionCode, { paused: false, pausedAt: null, startedAt: (session.startedAt || now()) + shift });
+  }
+}
+
+function startHostTick() {
+  if (hostTick) clearInterval(hostTick);
+  hostTick = setInterval(() => {
+    if (mode !== 'host' || !session) return;
+    const q = currentQuestion(session);
+    /* Countdown-Watchdog: falls der Host während des Countdowns neu lädt */
+    if (session.status === 'countdown' && session.startedAt && now() - session.startedAt > 3500) {
+      openQuestion(session.current || 0).catch((e) => showError(e.message));
+      return;
+    }
+    if (session.status !== 'question' || !q) return;
+    if (q.id !== lastHostQid) { lastHostQid = q.id; }
+    const players = sortedArray(session.players);
+    const answers = (session.answers && session.answers[q.id]) || {};
+    const answeredCount = Object.keys(answers).length;
+    /* Restzeit-Anzeige tickt */
+    const remainEl = qsel('host-remaining');
+    if (remainEl && !session.paused) {
+      const remain = Math.max(0, Math.ceil(q.seconds + (session.timerExtra || 0) - (now() - session.startedAt) / 1000));
+      remainEl.textContent = String(remain);
+    }
+    /* Bots beantworten die Frage mit zufälliger Geschwindigkeit und Trefferquote */
+    if (!session.paused) {
+      players.filter((p) => p.bot && !answers[p.id]).forEach((p) => {
+        const key = q.id + '|' + p.id;
+        if (botPlanned.has(key)) return;
+        botPlanned.add(key);
+        const delay = 800 + Math.random() * Math.min(q.seconds * 1000 - 600, 8000);
+        setTimeout(() => {
+          const s = session;
+          if (!s || s.status !== 'question' || currentQuestion(s).id !== q.id) return;
+          const r = Math.random();
+          let selected;
+          if (r < 0.65) selected = [...q.correct];
+          else if (q.type === 'multi' && r < 0.8) selected = [q.correct[0]];
+          else {
+            const wrongOpts = q.options.map((_, i) => i).filter((i) => !q.correct.includes(i));
+            selected = [wrongOpts.length ? wrongOpts[Math.floor(Math.random() * wrongOpts.length)] : 0];
+          }
+          applyAnswer(sessionCode, s, p.id, q, selected, Math.round(delay)).catch((e) => showError('Bot-Antwort: ' + e.message));
+        }, delay);
+      });
+    }
+    /* Automatisches Schliessen: alle geantwortet oder Zeit abgelaufen */
+    if (session.paused) return;
+    const elapsed = (now() - session.startedAt) / 1000;
+    if ((players.length > 0 && answeredCount >= players.length) || elapsed >= q.seconds + (session.timerExtra || 0)) {
+      closeQuestion().catch((e) => showError(e.message));
+    }
+  }, 400);
+}
+
+function spawnBots(n) {
+  if (!session || session.status !== 'lobby') return;
+  const players = sortedArray(session.players);
+  const usedAvatars = new Set(players.map((p) => p.avatar));
+  const usedNames = new Set(players.map((p) => p.name));
+  let added = 0;
+  for (let i = 0; i < 60 && added < n; i++) {
+    if (players.length + added >= QUIZ.maxPlayers) break;
+    const name = 'Bot ' + String(i + 1).padStart(2, '0');
+    if (usedNames.has(name)) continue;
+    let av = -1;
+    for (let a = 0; a < 30; a++) { if (!usedAvatars.has(a)) { av = a; break; } }
+    if (av < 0) break;
+    usedAvatars.add(av); usedNames.add(name); added++;
+    api.patch('sessions/' + sessionCode + '/players/bot-' + now() + '-' + i, {
+      name, avatar: av, ready: true, joinedAt: now(), connected: true, bot: true,
+      score: 0, streak: 0, maxStreak: 0, fullCorrect: 0, partialCorrect: 0, wrong: 0
+    }).catch((e) => showError('Bot-Beitritt: ' + e.message));
+  }
+}
+
+function renderHost() {
+  const root = qsel('host-main');
+  root.textContent = '';
+  if (!session) { root.appendChild(el('p', null, 'Lade Session...')); return; }
+  qsel('host-code').textContent = sessionCode;
+
+  if (session.status === 'ended') { renderFinalHost(root); return; }
+
+  const players = sortedArray(session.players);
+  const q = currentQuestion(session);
+  const answers = (q && session.answers && session.answers[q.id]) || {};
+  const answeredCount = Object.keys(answers).length;
+
+  const grid = el('div', 'grid two');
+
+  /* Beitritt */
+  const joinCard = el('div', 'card');
+  joinCard.appendChild(el('h3', null, 'Beitritt'));
+  const qrBox = el('div'); qrBox.id = 'qr-box';
+  joinCard.appendChild(qrBox);
+  const link = el('a', 'joinlink', joinUrl(sessionCode));
+  link.href = joinUrl(sessionCode);
+  link.target = '_blank';
+  joinCard.appendChild(link);
+  joinCard.appendChild(el('p', 'small', 'Nach Spielstart nur Wiederverbindung möglich.'));
+  grid.appendChild(joinCard);
+
+  /* Lobby */
+  const lobbyCard = el('div', 'card');
+  lobbyCard.appendChild(el('h3', null, 'Lobby'));
+  lobbyCard.appendChild(el('p', null, players.length + '/' + QUIZ.maxPlayers + ' Teilnehmende'));
+  lobbyCard.appendChild(el('p', null, 'Bereit: ' + players.filter((p) => p.ready).length + '/' + players.length));
+  if (session.status === 'lobby') {
+    const b = el('button', null, 'Quiz starten');
+    b.addEventListener('click', busyWrap(b, startQuiz));
+    lobbyCard.appendChild(b);
+    lobbyCard.appendChild(el('p', 'small', 'Test-Tipp: Taste B fügt 5 Bots hinzu, die automatisch mitspielen.'));
+  }
+  grid.appendChild(lobbyCard);
+  root.appendChild(grid);
+
+  if (session.status === 'countdown') {
+    const c = el('div', 'card');
+    c.appendChild(el('h2', null, '3, 2, 1'));
+    c.appendChild(el('p', null, QUIZ.startText));
+    root.appendChild(c);
+  }
+
+  if (q && session.status !== 'lobby' && session.status !== 'countdown') {
+    const card = el('div', 'card question');
+    card.appendChild(el('div', 'badge', q.icon || ''));
+    card.appendChild(el('h2', null, q.text));
+    if (q.statement) card.appendChild(el('p', null, q.statement));
+    card.appendChild(el('p', null, 'Geantwortet: ' + answeredCount + '/' + players.length));
+    if (session.status === 'question') {
+      const p = el('p', null, 'Restzeit: ');
+      const span = el('span', null, '');
+      span.id = 'host-remaining';
+      p.appendChild(span);
+      p.appendChild(document.createTextNode(' Sekunden' + (session.paused ? ' (pausiert)' : '')));
+      card.appendChild(p);
+    }
+    const actions = el('div', 'actions');
+    const mk = (label, fn, primary) => {
+      const b = el('button', primary ? null : 'secondary', label);
+      b.addEventListener('click', busyWrap(b, fn));
+      actions.appendChild(b);
+    };
+    mk(session.paused ? 'Weiter' : 'Pausieren', togglePause);
+    mk('+15 Sekunden', extendTimer);
+    mk('Zurück', prevQuestion);
+    mk('Überspringen', skipQuestion);
+    if (session.status === 'reveal') mk('Nächste Frage', nextQuestion, true);
+    card.appendChild(actions);
+    if (session.status === 'reveal') card.appendChild(renderReveal(q, players, answers));
+    root.appendChild(card);
+  }
+
+  /* Teilnehmerliste */
+  const tcard = el('div', 'card');
+  tcard.appendChild(el('h3', null, 'Teilnehmende'));
+  const table = el('table', 'table');
+  const tbody = el('tbody');
+  players.forEach((p) => {
+    const tr = el('tr');
+    const td0 = el('td'); td0.appendChild(avatarNode(p.avatar || 0, 34)); tr.appendChild(td0);
+    tr.appendChild(el('td', null, p.name || ''));
+    tr.appendChild(el('td', null, p.ready ? 'Bereit' : 'wartet'));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tcard.appendChild(table);
+  root.appendChild(tcard);
+
+  /* QR nur einmal pro Session rendern */
+  if (qrRendered !== sessionCode) {
+    qrRendered = sessionCode;
+    setTimeout(() => {
+      const box = qsel('qr-box');
+      if (!box) return;
+      if (typeof QRCode !== 'undefined') {
+        try { new QRCode(box, { text: joinUrl(sessionCode), width: 160, height: 160 }); }
+        catch (e) { showError('QR-Code konnte nicht erzeugt werden. Link-Fallback nutzen.'); }
+      }
+    }, 0);
+  } else {
+    /* vorhandenes QR-Bild in die neu gebaute Karte zurücksetzen */
+    setTimeout(() => {
+      const box = qsel('qr-box');
+      if (box && !box.firstChild && typeof QRCode !== 'undefined') {
+        try { new QRCode(box, { text: joinUrl(sessionCode), width: 160, height: 160 }); } catch (e) {}
+      }
+    }, 0);
+  }
+}
+
+function renderReveal(q, players, answers) {
+  const grid = el('div', 'grid two');
+  const a = el('div', 'card');
+  a.appendChild(el('h3', null, 'Auflösung'));
+  const rp = el('p'); rp.appendChild(el('b', null, 'Richtig: '));
+  rp.appendChild(document.createTextNode(q.correct.map((i) => q.options[i]).join(', ')));
+  a.appendChild(rp);
+  if (q.explanation) a.appendChild(el('p', null, q.explanation));
+  const right = players.filter((p) => answers[p.id] && answers[p.id].full).length;
+  a.appendChild(el('p', null, 'Richtig: ' + right + ' | Falsch/teilweise/nicht geantwortet: ' + (players.length - right)));
+  grid.appendChild(a);
+
+  const b = el('div', 'card');
+  b.appendChild(el('h3', null, 'Top 3 schnellste richtige Antworten'));
+  const top = players
+    .map((p) => ({ ...p, ans: answers[p.id] }))
+    .filter((p) => p.ans && p.ans.full)
+    .sort((x, y) => x.ans.elapsedMs - y.ans.elapsedMs)
+    .slice(0, 3);
+  if (top.length === 0) b.appendChild(el('p', null, 'Keine vollständig richtige Antwort.'));
+  top.forEach((p, i) => {
+    const line = el('p');
+    line.appendChild(el('b', null, (i + 1) + '. ' + p.name));
+    line.appendChild(document.createTextNode(' mit ' + (p.ans.elapsedMs / 1000).toFixed(2) + ' Sek.'));
+    b.appendChild(line);
+  });
+  grid.appendChild(b);
+  return grid;
+}
+
+function renderFinalHost(root) {
+  const rows = finalRows(session);
+  root.appendChild(el('h1', null, 'Der Projekt-Olymp ist erreicht'));
+  root.appendChild(el('p', null, 'Öffentlich sichtbar sind nur die Top 3.'));
+  const grid = el('div', 'podium-grid');
+  rows.slice(0, 3).forEach((p, i) => {
+    const c = el('div', 'card finalTop');
+    c.appendChild(el('div', 'badge', 'Platz ' + (i + 1)));
+    c.appendChild(el('h2', null, QUIZ.podium[i].title));
+    c.appendChild(el('p', null, QUIZ.podium[i].text));
+    const line = el('p'); line.appendChild(el('b', null, p.name)); line.appendChild(document.createTextNode(' mit ' + p.score + ' Punkten'));
+    c.appendChild(line);
+    grid.appendChild(c);
+  });
+  root.appendChild(grid);
+  const actions = el('div', 'actions');
+  const exp = el('button', null, 'CSV exportieren');
+  exp.addEventListener('click', busyWrap(exp, async () => {
+    const csv = buildCsv(session);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'digilex-ergebnisse-' + sessionCode + '.csv';
+    a.click();
+  }));
+  actions.appendChild(exp);
+  const rst = el('button', 'danger', 'Session zurücksetzen');
+  rst.addEventListener('click', busyWrap(rst, resetSession));
+  actions.appendChild(rst);
+  root.appendChild(actions);
+}
+
+/* ---------- Join ---------- */
+function renderAvatarGrid() {
+  const grid = qsel('avatar-grid');
+  grid.textContent = '';
+  const taken = new Set(sortedArray(session && session.players).filter((p) => p.id !== playerId).map((p) => p.avatar));
+  for (let i = 0; i < 30; i++) {
+    const d = el('div', 'avatar' + (joinAvatar === i ? ' selected' : '') + (taken.has(i) ? ' taken' : ''));
+    d.appendChild(avatarNode(i, 52));
+    d.addEventListener('click', () => { joinAvatar = i; renderAvatarGrid(); });
+    grid.appendChild(d);
+  }
+}
+
+async function enterSession() {
+  const errEl = qsel('join-err');
+  errEl.textContent = '';
+  const code = qsel('join-code').value.replace(/\D/g, '').slice(0, 6);
+  const name = qsel('join-name').value.trim();
+  const fail = (m) => { errEl.textContent = m; };
+  if (!code) return fail('Bitte Session-Code eingeben.');
+  const s = await api.read('sessions/' + code);
+  if (!s) return fail('Session nicht gefunden.');
+  const players = sortedArray(s.players);
+  const existing = s.players && s.players[playerId];
+  if (s.status !== 'lobby' && !existing) return fail('Das Quiz läuft bereits. Neuer Beitritt ist nicht mehr möglich.');
+  if (!existing && players.length >= QUIZ.maxPlayers) return fail('Maximale Teilnehmerzahl (' + QUIZ.maxPlayers + ') erreicht.');
+  if (!name || name.length > 20) return fail('Bitte eindeutigen Namen mit maximal 20 Zeichen eingeben.');
+  if (joinAvatar === null && !existing) return fail('Bitte einen freien Avatar wählen.');
+  if (players.some((p) => p.id !== playerId && (p.name || '').toLowerCase() === name.toLowerCase())) return fail('Dieser Name ist bereits vergeben.');
+  if (joinAvatar !== null && players.some((p) => p.id !== playerId && p.avatar === joinAvatar)) return fail('Dieser Avatar ist bereits vergeben.');
+  await api.patch('sessions/' + code + '/players/' + playerId, {
+    name,
+    avatar: joinAvatar !== null ? joinAvatar : existing.avatar,
+    ready: existing ? !!existing.ready : false,
+    joinedAt: now(), connected: true,
+    score: (existing && existing.score) || 0,
+    streak: (existing && existing.streak) || 0,
+    maxStreak: (existing && existing.maxStreak) || 0,
+    fullCorrect: (existing && existing.fullCorrect) || 0,
+    partialCorrect: (existing && existing.partialCorrect) || 0,
+    wrong: (existing && existing.wrong) || 0,
+    times: (existing && existing.times) || []
+  });
+  lastQid = null;
+  mode = 'player';
+  showScreen('scr-player');
+  subscribeSession(code);
+}
+
+/* ---------- Player ---------- */
+async function submitAnswer() {
+  if (!session || session.status !== 'question' || localSubmitted) return;
+  const q = currentQuestion(session);
+  const dbAns = session.answers && session.answers[q.id] && session.answers[q.id][playerId];
+  if (dbAns) { localSubmitted = true; renderPlayer(); return; }
+  const elapsedMs = Math.max(0, now() - shownAt);
+  localSubmitted = true;
+  const ok = await applyAnswer(sessionCode, session, playerId, q, [...localSelected], elapsedMs);
+  if (!ok) localSubmitted = true;
+  renderPlayer();
+}
+
+function renderPlayer() {
+  const root = qsel('player-main');
+  root.textContent = '';
+  if (!session) { root.appendChild(el('p', null, 'Verbindung wird hergestellt...')); return; }
+  const player = session.players && session.players[playerId];
+  if (!player) { root.appendChild(el('p', null, 'Verbindung wird hergestellt...')); return; }
+  const q = currentQuestion(session);
+
+  if (session.status === 'lobby') {
+    const grid = el('div', 'grid two');
+    const left = el('div');
+    left.appendChild(el('h2', null, 'Ihre digitale Odyssee beginnt gleich.'));
+    left.appendChild(el('p', null, 'Der Projekt-Olymp ruft. Bitte klicken Sie auf Bereit, sobald Name und Avatar passen.'));
+    const b = el('button', null, player.ready ? 'Nicht mehr bereit' : 'Bereit');
+    b.addEventListener('click', busyWrap(b, async () => {
+      await api.patch('sessions/' + sessionCode + '/players/' + playerId, { ready: !player.ready });
+    }));
+    left.appendChild(b);
+    grid.appendChild(left);
+    const av = el('div', 'lobby-avatar'); av.appendChild(avatarNode(player.avatar, 90));
+    grid.appendChild(av);
+    root.appendChild(grid);
+    return;
+  }
+
+  if (session.status === 'countdown') {
+    root.appendChild(el('h1', null, '3, 2, 1'));
+    root.appendChild(el('p', null, QUIZ.startText));
+    const av = el('div', 'lobby-avatar'); av.appendChild(avatarNode(player.avatar, 90));
+    root.appendChild(av);
+    return;
+  }
+
+  if (session.status === 'ended') { renderFinalPlayer(root); return; }
+
+  const dbAns = session.answers && session.answers[q.id] && session.answers[q.id][playerId];
+  const submitted = localSubmitted || !!dbAns;
+
+  root.appendChild(el('div', 'badge', q.icon || ''));
+  root.appendChild(el('h2', null, q.text));
+  if (q.hint) root.appendChild(el('p', 'notice', q.hint));
+  if (q.statement) root.appendChild(el('p', null, q.statement));
+
+  const opts = el('div', 'options');
+  q.options.forEach((o, i) => {
+    let cls = 'option';
+    if (localSelected.includes(i)) cls += ' selected';
+    if (session.status === 'reveal' && q.correct.includes(i)) cls += ' correct';
+    if (session.status === 'reveal' && dbAns && dbAns.selected && dbAns.selected.includes(i) && !q.correct.includes(i)) cls += ' wrong';
+    const b = el('button', cls);
+    b.appendChild(el('span', null, o));
+    if (localSelected.includes(i)) b.appendChild(el('span', null, '\u2713'));
+    b.disabled = submitted || session.status !== 'question';
+    b.addEventListener('click', () => {
+      if (submitted || session.status !== 'question') return;
+      if (q.type === 'multi') {
+        localSelected = localSelected.includes(i) ? localSelected.filter((x) => x !== i) : [...localSelected, i];
+      } else localSelected = [i];
+      renderPlayer();
+    });
+    opts.appendChild(b);
+  });
+  root.appendChild(opts);
+
+  if (session.status === 'question') {
+    const sb = el('button', null, submitted ? 'Antwort gesendet' : 'Antwort absenden');
+    sb.disabled = localSelected.length === 0 || submitted;
+    sb.id = 'btn-submit';
+    sb.addEventListener('click', busyWrap(sb, submitAnswer));
+    root.appendChild(sb);
+  }
+
+  if (session.status === 'reveal') {
+    const c = el('div', 'card');
+    c.appendChild(el('h3', null, dbAns && dbAns.full ? 'Richtig!' : dbAns && dbAns.partial ? 'Teilweise richtig.' : 'Nicht richtig.'));
+    c.appendChild(el('p', null, 'Punkte: ' + (dbAns ? (dbAns.points || 0) + (dbAns.bonus || 0) : 0)));
+    c.appendChild(el('p', null, 'Ihre Antwortzeit: ' + (dbAns ? (dbAns.elapsedMs / 1000).toFixed(2) + ' Sekunden' : 'keine Antwort')));
+    c.appendChild(el('p', null, 'Punktestand: ' + (player.score || 0)));
+    c.appendChild(el('p', null, 'Richtige Serie: ' + (player.streak || 0)));
+    root.appendChild(c);
+  }
+}
+
+function renderFinalPlayer(root) {
+  const rows = finalRows(session);
+  const me = rows.find((r) => r.id === playerId);
+  if (!me) { root.appendChild(el('p', null, 'Danke fürs Mitspielen.')); return; }
+  if (me.rank <= 3) {
+    const pod = QUIZ.podium[me.rank - 1];
+    root.appendChild(el('div', 'badge', 'Aufstieg in den Projekt-Olymp'));
+    root.appendChild(el('h1', null, pod.title));
+    root.appendChild(el('p', null, pod.text));
+    root.appendChild(el('p', null, me.score + ' Punkte'));
+  } else {
+    root.appendChild(el('div', 'badge', 'Ihr Held:innenprofil'));
+    root.appendChild(el('h1', null, me.profile.title));
+    root.appendChild(el('p', 'small', me.profile.icon));
+    root.appendChild(el('p', null, me.profile.text));
+    root.appendChild(el('p', null, me.score + ' Punkte'));
+  }
+  root.appendChild(el('p', 'small', 'Die anderen Platzierungen werden nicht öffentlich angezeigt.'));
+}
+
+/* ---------- Init ---------- */
+function init() {
+  qsel('version-tag').textContent = VERSION;
+  if (api.__stub) {
+    const n = qsel('config-notice');
+    n.textContent = api.__notice;
+    n.style.display = 'block';
+  }
+  qsel('home-title').textContent = QUIZ.title;
+  qsel('home-qcount').textContent = String(QUIZ.questions.length);
+  qsel('home-maxplayers').textContent = String(QUIZ.maxPlayers);
+  validateQuiz();
+
+  qsel('btn-host').addEventListener('click', () => { showScreen('scr-hostlogin'); });
+  qsel('btn-login-back').addEventListener('click', () => { showScreen('scr-home'); });
+  qsel('btn-join-back').addEventListener('click', () => { goHome(); });
+  const createBtn = qsel('btn-create');
+  createBtn.addEventListener('click', busyWrap(createBtn, async () => {
+    qsel('login-err').textContent = '';
+    try { await createSession(qsel('host-pw').value); }
+    catch (e) { qsel('login-err').textContent = e.message; }
+  }));
+  qsel('btn-join').addEventListener('click', () => {
+    mode = 'join';
+    renderAvatarGrid();
+    showScreen('scr-join');
+  });
+  const enterBtn = qsel('btn-enter');
+  enterBtn.addEventListener('click', busyWrap(enterBtn, enterSession));
+  qsel('join-code').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const c = e.target.value;
+    if (c.length === 6 && mode === 'join') subscribeSession(c);
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'b' || e.key === 'B') && mode === 'host' && session && session.status === 'lobby') spawnBots(5);
+  });
+
+  const params = new URLSearchParams(location.search);
+  const j = params.get('join');
+  if (j) {
+    mode = 'join';
+    qsel('join-code').value = j.replace(/\D/g, '').slice(0, 6);
+    subscribeSession(qsel('join-code').value);
+    renderAvatarGrid();
+    showScreen('scr-join');
+  } else {
+    showScreen('scr-home');
+  }
+}
+
+/* Test- und Debug-Zugriff (wird auch von den automatischen Tests genutzt) */
+window.__digilex = { api, scoreAnswer, finalRows, assignProfile, applyAnswer, buildCsv, validateQuiz, QUIZ, heroProfiles, VERSION, get session() { return session; }, get sessionCode() { return sessionCode; }, get playerId() { return playerId; } };
+
+init();
+</script>
+</body>
+</html>
