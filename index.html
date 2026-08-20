@@ -529,11 +529,11 @@ const firebaseConfig = {
   messagingSenderId: "77721487079",
   appId: "1:77721487079:web:ef136b4724e9c1c1120442"
 };
-const APP_VERSION='v3.0 (2026-08-19)';
+const APP_VERSION='v3.1 (2026-08-19)';
 const ROOT='sessions';
 const HOST_PASSWORD='olymp2027';
 const TOP_N=10, COUNTDOWN_MS=3000, CALL_TIMEOUT=9000;
-const LENGTHS=[{n:5,label:'Kurzstrecke'},{n:10,label:'Standard'},{n:15,label:'Die volle Odyssee'}];
+const LENGTHS=[{n:3,label:'Kurzstrecke'},{n:7,label:'Die volle Odyssee'},{n:10,label:'Mit Zugabe-Runden'}];
 const QUESTIONS=[
   { id:"q1", tier:"core", type:"single", seconds:35,
     q:"Wann treten die neuen digitalen Behördenprozesse in Kraft?",
@@ -578,74 +578,6 @@ const QUESTIONS=[
     correct:[1],
     explanation:"Der Kanton. Der digitale Held erreicht den Projekt-Olymp.",
     icon:"7 von 7, der Projekt-Olymp" }
-,
-  { id:"q8", tier:"depth", type:"single", seconds:35,
-    q:"Wofür steht die Abkürzung AGOV?",
-    options:["Authentifizierung für staatliche Online-Dienste","Amtliches Gesuchs- und Online-Verzeichnis","Allgemeine Government-Odyssee-Verwaltung","Automatisiertes Genehmigungs- und Orakel-Verfahren"],
-    correct:[0],
-    explanation:"AGOV steht für Authentifizierung für staatliche Online-Dienste, das einheitliche Behörden-Login der Schweiz von Bund, Kantonen und Gemeinden.",
-    icon:"Vertiefung, AGOV im Detail" },
-  { id:"q9", tier:"depth", type:"single", seconds:40,
-    q:"Wie meldet man sich bei AGOV an, ganz ohne Passwort?",
-    options:["Mit der App AGOV access oder einem physischen FIDO-Sicherheitsschlüssel","Mit einem sechsstelligen PIN auf einer Lochkarte","Mit dem Geburtsdatum und dem Lieblingsgott","Ausschliesslich per Fingerabdruck am Gemeindeschalter"],
-    correct:[0],
-    explanation:"AGOV funktioniert passwortlos, entweder über die App AGOV access oder einen FIDO-Sicherheitsschlüssel als USB-Stick. Sicherer und bequemer als ein Passwort.",
-    icon:"Vertiefung, passwortlos anmelden" },
-  { id:"q10", tier:"depth", type:"multi", seconds:40, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
-    q:"Welche beiden Zustellplattformen sind aktuell für rechtskonforme E-Mail-Eingaben anerkannt?",
-    options:["IncaMail","PrivaSphere","OlympMail Express","Das gute alte Fax mit Lesebestätigung"],
-    correct:[0,1],
-    explanation:"Der Kanton Zürich nennt ausdrücklich nur IncaMail und PrivaSphere als zulässige Zustellplattformen, zusätzlich braucht es eine QES.",
-    icon:"Vertiefung, sichere Zustellung" },
-  { id:"q11", tier:"depth", type:"single", seconds:35,
-    q:"Wer bietet den sicheren Zustelldienst IncaMail an?",
-    options:["Die Schweizerische Post","Der Götterbote Hermes persönlich","Die Bundeskanzlei","Eine private Taubenpost-Genossenschaft"],
-    correct:[0],
-    explanation:"IncaMail ist ein Dienst der Schweizerischen Post und vom EJPD als sichere Zustellplattform anerkannt.",
-    icon:"Vertiefung, IncaMail" },
-  { id:"q12", tier:"depth", type:"single", seconds:40,
-    q:"Womit ist eine qualifizierte elektronische Signatur (QES) rechtlich gleichgestellt?",
-    options:["Mit der eigenhändigen handschriftlichen Unterschrift","Mit einem amtlichen Stempel in dreifacher Ausführung","Mit einem notariell beglaubigten Handschlag","Mit einem Siegel aus echtem Olymp-Wachs"],
-    correct:[0],
-    explanation:"Die QES ist gemäss Artikel 14 Absatz 2bis des Obligationenrechts der eigenhändigen Unterschrift gleichgestellt, geregelt im Bundesgesetz über die elektronische Signatur (ZertES).",
-    icon:"Vertiefung, QES" },
-  { id:"q13", tier:"depth", type:"single", seconds:30,
-    q:"Was kostet das Zürikonto für Einwohnende und Unternehmen?",
-    options:["Nichts, es ist kostenlos","Eine jährliche Olymp-Gebühr von 27 Franken","Einen Obolus pro eingereichtem Gesuch","Nur die Mehrwertsteuer auf digitale Lorbeeren"],
-    correct:[0],
-    explanation:"Das Zürikonto ist der kostenlose persönliche Zugang zu den Online-Dienstleistungen des Kantons Zürich.",
-    icon:"Vertiefung, Zürikonto" },
-  { id:"q14", tier:"depth", type:"single", seconds:40,
-    q:"Über welche Plattform läuft künftig der elektronische Rechtsverkehr in der Schweizer Justiz?",
-    options:["justitia.swiss","olymp.gericht.ch","Die zentrale Fax-Zentrale in Bern","paragraph.ch"],
-    correct:[0],
-    explanation:"justitia.swiss ist die zentrale Justizplattform für den elektronischen Rechtsverkehr. Gesetzliche Grundlage ist das BEKJ, dessen restliche Bestimmungen am 1. Juli 2027 in Kraft treten.",
-    icon:"Vertiefung, justitia.swiss" },
-  { id:"q15", tier:"depth", type:"multi", seconds:35, hint:"Mehrfachauswahl, 2 Antworten sind richtig.",
-    q:"Wie kann Sie das Zürikonto über Änderungen an Ihren Vorgängen benachrichtigen?",
-    options:["Per E-Mail","Per SMS","Per Brieftaube vom Grossmünster","Per Donnergrollen des Zeus"],
-    correct:[0,1],
-    explanation:"Im Zürikonto legen Sie selbst fest, ob Sie per SMS oder E-Mail benachrichtigt werden möchten.",
-    icon:"Vertiefung, Benachrichtigung" },
-  { id:"f1", tier:"fun", type:"single", seconds:25,
-    q:"Ihr Gesuch ist in Sekunden bestätigt. Wie feiern Sie im Projekt-Olymp?",
-    options:["Ein stilles Nicken Richtung Bildschirm, dann der nächste Vorgang","Eine Amphore Most köpfen und die Kolleginnen wecken","Lorbeerkranz aufsetzen und dramatisch aus dem Grossraumbüro schreiten","Zeus per Blitz eine Lesebestätigung schicken"],
-    correct:[0],
-    explanation:"Ein stilles Nicken. So feiert der wahre Verwaltungsheld.",
-    icon:"Fun, Olymp-Etikette" },
-  { id:"f2", tier:"fun", type:"single", seconds:25,
-    q:"Welches Wesen bewacht laut Legende den Aktenberg der Verwaltung?",
-    options:["Der dreiköpfige Formularberos","Ein Greif mit Ablagekorb","Die Sphinx vom Amt für Fristen","Ein sehr müder Praktikant"],
-    correct:[0],
-    explanation:"Der dreiköpfige Formularberos. Jeder Kopf will ein anderes Beiblatt.",
-    icon:"Fun, Sagenwesen" },
-  { id:"f3", tier:"fun", type:"truefalse", seconds:20,
-    q:"Frage aus der Sagenwelt.",
-    statement:"Aussage: Auf dem Projekt-Olymp gibt es ein eigenes WLAN, aber der Empfang ist göttlich schlecht.",
-    options:["Wahr, so will es das Orakel","Falsch, der Olymp nutzt Glasfaser"],
-    correct:[0],
-    explanation:"Wahr, so will es das Orakel. Selbst Götter warten manchmal auf den Ladebalken.",
-    icon:"Fun, Olymp-WLAN" }
 ];
 const PODIUM=[
   { title:"Athena Aktenklar", text:"Hat den Paragrafen-Nebel geteilt und steigt verdient in den Projekt-Olymp auf." },
@@ -879,7 +811,7 @@ const SFX={
 const S={role:null,code:null,pid:null,name:'',emoji:'🦉',game:null,off:0,offKnown:false,everConn:false,
   screen:'',phaseKey:'',revealed:{},revealRetry:{},botTimers:[],builtQ:-1,builtQP:-1,goPlayed:{},
   localSel:[],localSubmitted:false,optBtns:[],earlyT:{},qrDone:false,lastQuip:{},raf:0,trace:[],
-  lastSnapAt:0,lastHot:0,hbT:0,lenN:10,bestMs:null,stWarn:false,acWarn:false,ckWarn:false,
+  lastSnapAt:0,lastHot:0,hbT:0,lenN:7,bestMs:null,stWarn:false,acWarn:false,ckWarn:false,
   deckChecked:false,lastRenderErr:''};
 let db=null;
 const TS=()=>firebase.database.ServerValue.TIMESTAMP;
@@ -950,23 +882,28 @@ function leave(){
   location.href=location.origin+location.pathname;
 }
 function makeDeck(n){
-  const idxByTier=t=>QUESTIONS.map((q,i)=>({q,i})).filter(o=>o.q.tier===t).map(o=>o.i);
-  const core=idxByTier('core'), depth=idxByTier('depth'), fun=idxByTier('fun');
-  const funCap=n<=5?1:(n<=10?2:3);
-  const funPicked=[];
-  const funS=shuffle(fun.slice());
-  for(let k=0;k<funCap&&k<funS.length;k++){ if(Math.random()<0.55)funPicked.push(funS[k]); }
-  let remaining=n-funPicked.length;
-  const pick=[];
-  for(const idx of shuffle(core.slice())){ if(remaining<=0)break; pick.push(idx); remaining--; }
-  for(const idx of shuffle(depth.slice())){ if(remaining<=0)break; pick.push(idx); remaining--; }
-  for(const idx of shuffle(fun.slice())){ if(remaining<=0)break; if(funPicked.indexOf(idx)<0){pick.push(idx); remaining--;} }
-  const all=shuffle(pick.concat(funPicked));
-  return all.map(p=>{
+  function mk(p){
     const src=QUESTIONS[p];
     const perm=(src.type==='truefalse')?[0,1]:shuffle(Array.from(src.options.keys()));
     return {p,o:perm};
-  });
+  }
+  const pool=QUESTIONS.map((_,i)=>i);
+  if(n<=pool.length){
+    return shuffle(pool.slice()).slice(0,n).map(mk);
+  }
+  const count={}; pool.forEach(p=>{count[p]=1;});
+  let extra=n-pool.length;
+  while(extra>0){count[pool[Math.floor(Math.random()*pool.length)]]++; extra--;}
+  const seq=[]; let last=-1;
+  for(let s=0;s<n;s++){
+    let cands=Object.keys(count).filter(k=>count[k]>0 && Number(k)!==last);
+    if(cands.length===0)cands=Object.keys(count).filter(k=>count[k]>0);
+    const maxc=Math.max.apply(null,cands.map(k=>count[k]));
+    const top=cands.filter(k=>count[k]===maxc);
+    const chosen=Number(top[Math.floor(Math.random()*top.length)]);
+    seq.push(chosen); count[chosen]--; last=chosen;
+  }
+  return seq.map(mk);
 }
 function deckQ(g,i){
   const entry=g.deck[i], src=QUESTIONS[entry.p];
@@ -1877,7 +1814,7 @@ function buildLengthButtons(){
     row.appendChild(b);
   });
   const li=$('#li-lengths');
-  if(li)li.textContent='Rundenlänge wählen ('+LENGTHS.map(L=>L.n).join(', ')+' Fragen).'+(false?' Bei der längsten Runde wiederholen sich einige Fragen zufällig.':'');
+  if(li)li.textContent='Rundenlänge wählen ('+LENGTHS.map(L=>L.n).join(', ')+' Fragen).'+(true?' Bei der längsten Runde wiederholen sich einige Fragen zufällig.':'');
 }
 function wire(){
   $('#btnHost').addEventListener('click',()=>{ensureAudio(); $('#hostPw').value=''; $('#loginErr').textContent=''; go('s-hostlogin');});
